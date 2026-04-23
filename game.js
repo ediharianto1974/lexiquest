@@ -1392,81 +1392,67 @@ function sendChallengeInvite(opponentName) {
 }
 
 // ==========================================
-// A. PENGHANTAR: Fungsi Hantar Jemputan
+// A. PENGHANTAR: Fungsi Hantar Jemputan & Had Harian
 // ==========================================
 async function sendChallengeInvite(opponentName) {
-    // 1. Bina senarai pilihan (dropdown) secara automatik dari data.js
-    let dynamicCategoryOptions = {};
-    
-    // Kita pusing (loop) semua kunci yang ada dalam gameData (missing, anagram, etc.)
-    for (let key in gameData) {
-        // Cantikkan paparan: Huruf besar di depan (cth: "missing" -> "Missing")
-        let displayName = key.charAt(0).toUpperCase() + key.slice(1);
-        dynamicCategoryOptions[key] = displayName; 
-    }
-
-    // 2. Minta pengesahan kategori menggunakan senarai dinamik
-    const { value: category } = await Swal.fire({
-        title: `Cabar ${opponentName}`,
-        text: "Pilih kategori untuk perlawanan ini:",
-        input: 'select',
-        inputOptions: dynamicCategoryOptions, // <--- Senarai 16 kategori masuk sini automatik
-        showCancelButton: true,
-        confirmButtonColor: '#ef4444',
-        confirmButtonText: 'HANTAR CABARAN ⚔️',
-        cancelButtonText: 'BATAL'
-    });
-
-    if (!category) return; // Keluar jika batal
+    const today = new Date().toISOString().split('T')[0];
 
     try {
-        // 3. Cipta rekod cabaran di Firebase
-        const challengeRef = db.collection("challenges").doc();
-        const myName = studentInfo.name;
+        // 1. SEMAK HAD HARIAN (Maksimum 2 kali sehari)
+        const playerDoc = await db.collection("players").doc(studentInfo.name).get();
+        if (playerDoc.exists) {
+            const data = playerDoc.data();
+            if (data.lastPvPDate === today && data.pvpCountToday >= 10) {
+                Swal.fire('Had Dicapai 🛑', 'Anda telah mencapai maksimum 10 perlawanan PvP hari ini. Sila sambung esok!', 'warning');
+                return; // Halang dari mencabar
+            }
+        }
 
+        // 2. BINA SENARAI KATEGORI (Dari data.js)
+        let dynamicCategoryOptions = {};
+        for (let key in gameData) {
+            let displayName = key.charAt(0).toUpperCase() + key.slice(1);
+            dynamicCategoryOptions[key] = displayName; 
+        }
+
+        const { value: category } = await Swal.fire({
+            title: `Cabar ${opponentName}`,
+            text: "Pilih kategori untuk perlawanan ini:",
+            input: 'select',
+            inputOptions: dynamicCategoryOptions,
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'HANTAR CABARAN ⚔️'
+        });
+
+        if (!category) return;
+
+        // 3. HANTAR CABARAN KE FIREBASE
+        const challengeRef = db.collection("challenges").doc();
         await challengeRef.set({
-            challengerName: myName,
+            challengerName: studentInfo.name,
             opponentName: opponentName,
-            category: category, // Kategori yang dipilih (cth: "animals")
+            category: category,
             status: "pending",
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        Swal.fire({
-            title: 'Berjaya!',
-            text: `Menunggu ${opponentName} menerima cabaran anda...`,
-            icon: 'success',
-            showConfirmButton: false,
-            allowOutsideClick: false
-        });
+        Swal.fire({ title: 'Berjaya!', text: `Menunggu ${opponentName}...`, icon: 'success', showConfirmButton: false });
 
-        // 4. Pasang "telinga" untuk status TERIMA atau TOLAK
         const unsubscribe = challengeRef.onSnapshot(doc => {
             if (!doc.exists) return;
             const data = doc.data();
-            
             if (data.status === "accepted") {
-                unsubscribe(); // Berhenti dengar
-                Swal.fire({
-                    title: 'Diterima!',
-                    text: `${opponentName} menyahut cabaran! Sedia?`,
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                
-                // Masuk ke Arena selepas 2 saat
+                unsubscribe();
+                Swal.fire({ title: 'Diterima!', text: `Sedia untuk bertempur!`, icon: 'success', timer: 2000, showConfirmButton: false });
                 setTimeout(() => startPvPMatch(doc.id, data), 2000);
-
             } else if (data.status === "declined") {
                 unsubscribe();
-                Swal.fire('Ditolak', `${opponentName} tidak dapat menyertai cabaran sekarang.`, 'error');
+                Swal.fire('Ditolak', `${opponentName} sibuk.`, 'error');
             }
         });
-
     } catch (error) {
-        console.error("Ralat cabaran:", error);
-        Swal.fire('Ralat', 'Gagal menghantar jemputan.', 'error');
+        console.error("Ralat jemputan:", error);
     }
 }
 
@@ -1605,220 +1591,246 @@ function startPvPMatch(challengeId, challengeData) {
 }
 
 // ==========================================
-// D. LOGIK PERLAWANAN & MARKAH (REAL-TIME)
+// D. LOGIK PERLAWANAN & MARKAH (90 SAAT + JEDA UX)
 // ==========================================
 function setupPvPLogic(challengeId, data) {
-    console.log("⚙️ Memulakan enjin setupPvPLogic (Versi SYNC & DINAMIK)...");
+    currentPvPChallengeId = challengeId;
+    isPlayer1 = (data.challengerName === studentInfo.name); 
+    
+    let pvpEndTime = null; 
+    const timerDisplay = document.getElementById('pvp-timer');
 
-    try {
-        currentPvPChallengeId = challengeId;
-        isPlayer1 = (data.challengerName === studentInfo.name); 
-        
-        let pvpEndTime = null; 
-        const timerDisplay = document.getElementById('pvp-timer');
-
-        // 1. Pemain 1 tarik soalan pertama & TETAPKAN MASA TAMAT
-        if (isPlayer1 && !data.currentQ) {
-            console.log("Pemain 1 menetapkan soalan pertama & Masa Tamat...");
-            
-            let catKey = "missing"; // Lalai
-            let chosenCategory = data.category ? data.category.toLowerCase() : "";
-            
-            // TEKNIK PINTAR: Cari padanan kategori secara automatik dari data.js
-            for (let key in gameData) {
-                if (chosenCategory.includes(key.toLowerCase())) {
-                    catKey = key;
-                    break;
-                }
-            }
-            
-            console.log("Kategori yang dipadankan:", catKey);
-            currentPvPCategoryKey = catKey;
-
-            const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
-            const firstQ = questions[Math.floor(Math.random() * questions.length)];
-            
-            db.collection("challenges").doc(challengeId).update({
-                p1Score: 0,
-                p2Score: 0,
-                currentQ: firstQ.q,
-                currentA: firstQ.a,
-                categoryKey: currentPvPCategoryKey, // Simpan kunci ke Firebase
-                endTime: Date.now() + 60000 
-            });
+    // 1. Pemain 1 tarik soalan pertama
+    if (isPlayer1 && !data.currentQ) {
+        let catKey = "missing"; 
+        let chosenCategory = data.category ? data.category.toLowerCase() : "";
+        for (let key in gameData) {
+            if (chosenCategory.includes(key.toLowerCase())) { catKey = key; break; }
         }
+        currentPvPCategoryKey = catKey;
 
-        // 2. Telinga Khas: Dengar markah, soalan, WAKTU TAMAT & KATEGORI
-        db.collection("challenges").doc(challengeId).onSnapshot(doc => {
-            if (!doc.exists) return;
-            const matchData = doc.data();
-
-            const p1Display = document.getElementById('pvp-p1-score');
-            const p2Display = document.getElementById('pvp-p2-score');
-            const qDisplay = document.getElementById('pvp-question-display');
-
-            if (p1Display) p1Display.innerText = matchData.p1Score || 0;
-            if (p2Display) p2Display.innerText = matchData.p2Score || 0;
-
-            if (matchData.currentQ && qDisplay) {
-                qDisplay.innerText = matchData.currentQ;
-                currentPvPAnswer = matchData.currentA; 
-            }
-
-            if (matchData.endTime) {
-                pvpEndTime = matchData.endTime;
-            }
-            if (matchData.categoryKey) {
-                currentPvPCategoryKey = matchData.categoryKey; 
-            }
+        const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
+        const firstQ = questions[Math.floor(Math.random() * questions.length)];
+        
+        db.collection("challenges").doc(challengeId).update({
+            p1Score: 0, p2Score: 0,
+            currentQ: firstQ.q, currentA: firstQ.a,
+            categoryKey: currentPvPCategoryKey,
+            isTransitioning: false, // 🔴 Tanda untuk pause UX
+            endTime: Date.now() + 90000 // 🔴 90 SAAT
         });
+    }
 
-        // 3. PEMASA TERSINKRONISASI (SYNCED TIMER)
-        if (!timerDisplay) {
-            console.error("❌ RALAT: Elemen HTML 'pvp-timer' tidak dijumpai!");
-            return; 
-        }
+    // 2. Telinga Khas: Dengar perubahan
+    db.collection("challenges").doc(challengeId).onSnapshot(doc => {
+        if (!doc.exists) return;
+        const matchData = doc.data();
 
-        if (window.pvpTimerInterval) {
-            clearInterval(window.pvpTimerInterval);
-        }
-        
-        window.pvpTimerInterval = setInterval(() => {
-            if (!pvpEndTime) {
-                timerDisplay.innerText = "60";
-                return;
+        document.getElementById('pvp-p1-score').innerText = matchData.p1Score || 0;
+        document.getElementById('pvp-p2-score').innerText = matchData.p2Score || 0;
+
+        if (matchData.endTime) pvpEndTime = matchData.endTime;
+        if (matchData.categoryKey) currentPvPCategoryKey = matchData.categoryKey;
+
+        const inputBox = document.getElementById('pvp-answer-input');
+
+        // 🔴 SISTEM UX: "SIAPA CEPAT" & JEDA (PAUSE)
+        if (matchData.isTransitioning) {
+            if (inputBox) {
+                inputBox.disabled = true; // Kunci kotak input supaya murid tak keliru
+                inputBox.value = "";      // 🔴 TAMBAH INI: Kosongkan kotak automatik untuk semua pemain!
             }
             
-            let timeLeft = Math.floor((pvpEndTime - Date.now()) / 1000);
-            if (timeLeft < 0) timeLeft = 0;
-            
-            timerDisplay.innerText = timeLeft;
-            
-            if (timeLeft <= 0) {
-                clearInterval(window.pvpTimerInterval);
-                console.log("Masa tamat! Memanggil endPvPMatch()...");
-                endPvPMatch(); 
+            // Tunjuk siapa yang dapat markah
+            Swal.fire({
+                toast: true, position: 'top', icon: 'success',
+                title: `⚡ ${matchData.lastScorer} mendapat markah!`,
+                showConfirmButton: false, timer: 1500
+            });
+
+            // Pemain 1 bertugas lepaskan soalan baharu selepas 1.5 saat
+            if (isPlayer1) {
+                setTimeout(() => {
+                    db.collection("challenges").doc(challengeId).update({
+                        currentQ: matchData.nextQ,
+                        currentA: matchData.nextA,
+                        isTransitioning: false // Buka balik game
+                    });
+                }, 1500);
             }
-        }, 1000);
-
-        console.log("✅ Enjin setupPvPLogic berjaya dihidupkan!");
-
-    } catch (error) {
-        console.error("❌ RALAT BESAR dalam setupPvPLogic:", error);
-    }
-}
-
-// ========================================================
-// GANTIKAN KESELURUHAN FUNGSI endPvPMatch DENGAN INI:
-// ========================================================
-function endPvPMatch() {
-    // 1. Kunci kotak input supaya pemain tak boleh menaip lagi
-    document.getElementById('pvp-answer-input').disabled = true; 
-    
-    // 2. Ambil markah dari skrin
-    const score1 = parseInt(document.getElementById('pvp-p1-score').innerText);
-    const score2 = parseInt(document.getElementById('pvp-p2-score').innerText);
-    
-    // 3. Tentukan Keputusan & Ganjaran
-    let resultMsg = "";
-    let coinsWon = 0;
-    let xpWon = 0;
-    let isWinner = false;
-    let isDraw = false;
-
-    // Logik menentukan pemenang
-    if (isPlayer1) {
-        if (score1 > score2) isWinner = true;
-        else if (score1 === score2) isDraw = true;
-    } else {
-        if (score2 > score1) isWinner = true;
-        else if (score2 === score1) isDraw = true;
-    }
-
-    // Tetapkan nilai ganjaran mengikut status
-    if (isWinner) {
-        resultMsg = "MENANG! 🎉";
-        coinsWon = 200;  // 💰 Ganjaran Syiling Menang
-        xpWon = 100;    // 🌟 Ganjaran XP Menang
-    } else if (isDraw) {
-        resultMsg = "SERI! 🤝";
-        coinsWon = 100;  // 💰 Ganjaran Syiling Seri
-        xpWon = 50;     // 🌟 Ganjaran XP Seri
-    } else {
-        resultMsg = "KALAH! 💀";
-        coinsWon = 50;  // 💰 Ganjaran Syiling Kalah
-        xpWon = 25;     // 🌟 Ganjaran XP Kalah
-    }
-
-    // 4. Masukkan Ganjaran ke dalam Data Pemain (localPlayerData)
-    localPlayerData.coins = (localPlayerData.coins || 0) + coinsWon;
-    localPlayerData.totalScore = (localPlayerData.totalScore || 0) + xpWon;
-
-    // 5. Simpan Data ke Firebase (Firestore) - VERSI SELAMAT (MERGE)
-    db.collection("players").doc(studentInfo.name).set({
-        coins: localPlayerData.coins,
-        totalScore: localPlayerData.totalScore
-    }, { merge: true })
-    .then(() => {
-        console.log("💰 Ganjaran PvP telah diselamatkan ke pangkalan data!");
-    }).catch(error => {
-        console.error("Ralat menyimpan ganjaran:", error);
+        } else {
+            // Sambung main macam biasa
+            if (inputBox) {
+                inputBox.disabled = false;
+                inputBox.focus();
+            }
+            if (matchData.currentQ) {
+                document.getElementById('pvp-question-display').innerText = matchData.currentQ;
+                currentPvPAnswer = matchData.currentA; 
+                window.currentPvPQuestionText = matchData.currentQ; // Simpan untuk disemak oleh transaksi
+            }
+        }
     });
 
-    // 6. Paparkan Pop-up Keputusan & Ganjaran
+    // 3. PEMASA TERSINKRONISASI (90 SAAT)
+    if (window.pvpTimerInterval) clearInterval(window.pvpTimerInterval);
+    
+    window.pvpTimerInterval = setInterval(() => {
+        if (!pvpEndTime) return;
+        let timeLeft = Math.floor((pvpEndTime - Date.now()) / 1000);
+        if (timeLeft < 0) timeLeft = 0;
+        timerDisplay.innerText = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(window.pvpTimerInterval);
+            endPvPMatch(); 
+        }
+    }, 1000);
+}
+
+// ==========================================
+// F. TAMAT PERLAWANAN & GANJARAN (TIERS)
+// ==========================================
+function endPvPMatch() {
+    // Hentikan pemasa jika masih berjalan
+    if (window.pvpTimerInterval) clearInterval(window.pvpTimerInterval);
+
+    // Ambil markah dari skrin
+    const p1Score = parseInt(document.getElementById('pvp-p1-score').innerText) || 0;
+    const p2Score = parseInt(document.getElementById('pvp-p2-score').innerText) || 0;
+
+    let myScore = isPlayer1 ? p1Score : p2Score;
+    let oppScore = isPlayer1 ? p2Score : p1Score;
+    let result = (myScore > oppScore) ? "menang" : (myScore < oppScore ? "kalah" : "seri");
+
+    // 1. TENTUKAN TIER (KUMPULAN KESUKARAN)
+    const easyCats = ['missing', 'spelling', 'plural', 'gendernouns', 'occupation'];
+    const medCats = ['puzzle', 'guessing', 'pasttense', 'superlatives', 'synonym', 'antonym'];
+    const hardCats = ['grammar', 'architect', 'idioms', 'listening', 'speaking'];
+
+    let tier = "easy"; // Lalai
+    let currentCat = (currentPvPCategoryKey || "").toLowerCase();
+    
+    if (medCats.includes(currentCat)) tier = "medium";
+    if (hardCats.includes(currentCat)) tier = "hard";
+
+    // 2. KIRA XP & COINS BERDASARKAN TIER
+    let xpReward = 0; let coinReward = 0;
+    
+    if (tier === "easy") {
+        if (result === "menang") { xpReward = 100; coinReward = 200; }
+        else if (result === "kalah") { xpReward = 25; coinReward = 50; }
+        else { xpReward = 50; coinReward = 100; }
+    } else if (tier === "medium") {
+        if (result === "menang") { xpReward = 150; coinReward = 300; }
+        else if (result === "kalah") { xpReward = 50; coinReward = 100; }
+        else { xpReward = 100; coinReward = 150; }
+    } else if (tier === "hard") {
+        if (result === "menang") { xpReward = 250; coinReward = 400; }
+        else if (result === "kalah") { xpReward = 100; coinReward = 100; }
+        else { xpReward = 150; coinReward = 200; }
+    }
+
+    // 3. Masukkan ganjaran ke data tempatan pemain
+    localPlayerData.coins = (localPlayerData.coins || 0) + coinReward;
+    localPlayerData.totalScore = (localPlayerData.totalScore || 0) + xpReward;
+
+    // 🔴 4. SIMPAN TERUS KE FIREBASE SEBELUM POP-UP (VERSI PALING SELAMAT)
+    const today = new Date().toISOString().split('T')[0];
+    
+    db.collection("players").doc(studentInfo.name).get().then(doc => {
+        let data = doc.exists ? doc.data() : {};
+        let newCount = (data.lastPvPDate === today) ? (data.pvpCountToday || 0) + 1 : 1;
+
+        db.collection("players").doc(studentInfo.name).set({
+            coins: localPlayerData.coins,
+            totalScore: localPlayerData.totalScore,
+            lastPvPDate: today,
+            pvpCountToday: newCount
+        }, { merge: true })
+        .then(() => {
+            console.log("💰 Ganjaran PvP dan rekod harian telah diselamatkan ke pangkalan data!");
+            if (typeof updateUI === "function") updateUI(); // Kemaskini UI di penjuru atas terus
+        }).catch(error => {
+            console.error("❌ Ralat menyimpan ganjaran:", error);
+        });
+    });
+
+    // 5. PAPARKAN KEPUTUSAN KEPADA MURID
+    let titleText = result === "menang" ? "Tahniah, Anda Menang! 🏆" : (result === "kalah" ? "Anda Tewas! 💔" : "Seri! 🤝");
+    let iconType = result === "menang" ? "success" : (result === "kalah" ? "error" : "info");
+
     Swal.fire({
-        title: "MASA TAMAT!",
-        html: `
-            <div class="mb-4">
-                <h2>Keputusan Anda:</h2>
-                <h1 class="text-4xl font-black mt-2 ${isWinner ? 'text-green-600' : (isDraw ? 'text-blue-600' : 'text-red-600')}">${resultMsg}</h1>
-            </div>
-            <div class="bg-gray-100 p-4 rounded-xl border-2 border-gray-200 text-left w-3/4 mx-auto shadow-inner">
-                <p class="text-lg font-bold text-gray-700 flex justify-between">
-                    <span>🌟 Markah (XP):</span> 
-                    <span class="text-indigo-600">+${xpWon}</span>
-                </p>
-                <p class="text-lg font-bold text-gray-700 flex justify-between mt-2">
-                    <span>💰 Syiling:</span> 
-                    <span class="text-yellow-600">+${coinsWon}</span>
-                </p>
-            </div>
-        `,
-        icon: isDraw ? "info" : (isWinner ? "success" : "error"),
-        confirmButtonColor: '#4f46e5',
-        confirmButtonText: "KEMBALI KE LOBI",
+        title: titleText,
+        html: `Kategori: <b>${tier.toUpperCase()}</b><br><br>
+               Markah Anda: <b>${myScore}</b><br>
+               Markah Lawan: <b>${oppScore}</b><br><br>
+               <b>Ganjaran Diterima:</b><br>
+               +${xpReward} XP ⭐<br>
+               +${coinReward} Syiling 💰`,
+        icon: iconType,
+        confirmButtonText: "Kembali ke Lobi",
         allowOutsideClick: false
     }).then(() => {
-        // Kembalikan pemain ke lobi (atau refresh UI atas untuk kemas kini paparan syiling)
-        if(typeof updateUI === 'function') updateUI(); // Panggil fungsi cikgu untuk kemas kini paparan syiling di bucu atas (jika ada)
-        showScreen('challenge-lobby-screen'); 
+        // Tutup arena, buka balik lobi
+        if (typeof showScreen === "function") {
+            showScreen('challenge-lobby-screen');
+        } else {
+            document.getElementById('pvp-arena-screen').classList.add('hidden');
+            document.getElementById('challenge-lobby-screen').classList.remove('hidden');
+        }
     });
 }
 
 // ==========================================
-// E. PENGESAN INPUT JAWAPAN PVP (AUTO-SUBMIT)
+// E. PENGESAN JAWAPAN (TRANSAKSI SIAPA CEPAT)
 // ==========================================
 document.getElementById('pvp-answer-input').addEventListener('input', function(e) {
-    if (!currentPvPChallengeId || !currentPvPAnswer) return;
+    if (!currentPvPChallengeId || currentPvPAnswer === undefined || currentPvPAnswer === null) return;
     
-    const userInput = this.value.toUpperCase().trim();
+    // 1. Ambil tekaan murid (jadikan huruf besar & buang ruang kosong)
+    const userInput = String(this.value).toUpperCase().trim();
     
-    // Jika tekaan TEPAT SAMA dengan jawapan!
-    if (userInput === currentPvPAnswer.toUpperCase()) {
-        this.value = ""; // 1. Kosongkan kotak serta-merta
+    // 2. Ambil jawapan sebenar dari data.js
+    const correctA_raw = String(currentPvPAnswer).toUpperCase().trim();
+    
+    // 3. TEKNIK PECAHAN: Asingkan jawapan jika ada simbol '|'
+    // Contoh: "FARTHEST|FURTHEST" akan menjadi senarai ["FARTHEST", "FURTHEST"]
+    const possibleAnswers = correctA_raw.split('|');
+    
+    // 4. Semak jika tekaan murid ADA dalam senarai jawapan yang sah
+    if (possibleAnswers.includes(userInput)) {
         
-        // 2. Cabut soalan baharu secara rawak dari kategori yang aktif
-        const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
-        const newQ = questions[Math.floor(Math.random() * questions.length)];
-        
-        // 3. Kenal pasti kotak markah siapa nak dinaikkan
-        const scoreField = isPlayer1 ? "p1Score" : "p2Score";
-        
-        // 4. Hantar ke Firebase (Markah naik 1, soalan bertukar)
-        db.collection("challenges").doc(currentPvPChallengeId).update({
-            [scoreField]: firebase.firestore.FieldValue.increment(1),
-            currentQ: newQ.q,
-            currentA: newQ.a
+        this.value = ""; 
+        this.disabled = true; // Kunci segera selepas jawapan betul
+
+        const challengeRef = db.collection("challenges").doc(currentPvPChallengeId);
+
+        // 🔴 FIREBASE TRANSACTION (Mengelakkan isu serentak)
+        db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(challengeRef);
+            if (!doc.exists) throw "Game tiada";
+            const data = doc.data();
+
+            // Semak jika lawan dah curi mata atau game sedang pause
+            if (data.currentQ !== window.currentPvPQuestionText || data.isTransitioning) {
+                return Promise.reject("Lawan jawab dulu!");
+            }
+
+            const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
+            const newQ = questions[Math.floor(Math.random() * questions.length)];
+            const scoreField = isPlayer1 ? "p1Score" : "p2Score";
+
+            // Update markah, rekod siapa jawab dulu, dan trigger "pause"
+            transaction.update(challengeRef, {
+                [scoreField]: (data[scoreField] || 0) + 1, 
+                lastScorer: studentInfo.name, 
+                nextQ: newQ.q,
+                nextA: newQ.a,
+                isTransitioning: true 
+            });
+        }).catch((err) => {
+            console.log("Transaksi dibatalkan:", err);
+            this.disabled = false; 
         });
     }
 });
