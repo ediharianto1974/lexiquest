@@ -94,10 +94,10 @@ function renderCategoryButtons() {
 }
 
 function lockedAlert(diff) {
-    let msg = diff === 'medium' ? "Selesaikan 3 kategori EASY dengan markah penuh (50/50) untuk buka tahap ini!" : "Selesaikan 3 kategori MEDIUM dengan markah penuh (50/50) untuk buka tahap ini!";
+    let msg = diff === 'medium' ? "Complete 3 categories in EASY Mode with full marks (50/50) to open this stage!" : "Complete 3 categories in MEDIUM Mode with full marks (50/50) to open this stage!";
     Swal.fire({
         icon: 'warning',
-        title: 'Tahap Terkunci 🔒',
+        title: 'Level Locked 🔒',
         text: msg,
         confirmButtonColor: '#4f46e5'
     });
@@ -204,7 +204,7 @@ function initGame(type) {
         if (type === 'speaking' || type === 'pronunciation') {
             div.classList.add('text-center');
             div.innerHTML = `
-                <p class="font-bold text-gray-500 mb-2">Sebut ayat di bawah:</p>
+                <p class="font-bold text-gray-500 mb-2">Read the sentence below:</p>
                 <h1 class="text-2xl font-extrabold text-indigo-700 mb-4 target-word">${item.q}</h1>
                 <button type="button" onclick="startMic(this)" class="bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-full font-bold shadow-md">
                     🎤 Tekan & Cakap
@@ -284,8 +284,8 @@ function timeUp() {
     Swal.fire({
         icon: 'warning',
         title: "TIME'S UP! ⏳",
-        text: "Masa telah tamat. Jom semak markah anda!",
-        confirmButtonText: "Semak Markah",
+        text: "Time's up. Let's check your score!",
+        confirmButtonText: "Check Score",
         confirmButtonColor: "#ef4444",
         allowOutsideClick: false
     }).then(() => {
