@@ -1,0 +1,875 @@
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000); 
+  
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var data = JSON.parse(e.postData.contents);
+    
+    // -----------------------------------------------------------------
+    // 1. UPDATE DATA PEMAIN
+    // -----------------------------------------------------------------
+    if (data.action === "updatePlayer") {
+      var sheet = ss.getSheetByName("Players");
+      if (!sheet) sheet = ss.insertSheet("Players"); 
+      
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["Name", "Class", "Coins", "Inventory", "Avatars", "ActiveAvatar", "Passcode", "Achievements", "ActiveTitle", "Total", "ClaimedLevels", "LastPlayed", "GamesData"]);
+      }
+
+      var rows = sheet.getDataRange().getValues();
+      var found = false;
+      
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0].toString().toUpperCase() === data.name.toUpperCase() && 
+            rows[i][1].toString().toUpperCase() === data.class.toUpperCase()) {
+          
+          sheet.getRange(i + 1, 3).setValue(data.coins);
+          sheet.getRange(i + 1, 4).setValue(JSON.stringify(data.inventory));
+          sheet.getRange(i + 1, 5).setValue(JSON.stringify(data.avatars));
+          sheet.getRange(i + 1, 6).setValue(JSON.stringify(data.activeAvatar || null)); 
+          
+          if (!rows[i][6]) sheet.getRange(i + 1, 7).setValue(data.passcode || "");
+          sheet.getRange(i + 1, 8).setValue(JSON.stringify(data.achievements || []));
+          sheet.getRange(i + 1, 9).setValue(data.activeTitle || "Novice"); 
+          sheet.getRange(i + 1, 11).setValue(JSON.stringify(data.claimedLevels || []));
+          sheet.getRange(i + 1, 12).setValue(JSON.stringify(data.lastPlayed || []));
+          sheet.getRange(i + 1, 13).setValue(JSON.stringify(data.games || {})); 
+
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        sheet.appendRow([
+          data.name.toUpperCase(), data.class.toUpperCase(), data.coins, 
+          JSON.stringify(data.inventory), JSON.stringify(data.avatars), JSON.stringify(data.activeAvatar || null),
+          data.passcode || "", JSON.stringify(data.achievements || []), data.activeTitle || "Novice", 
+          0, JSON.stringify(data.claimedLevels || []), JSON.stringify(data.lastPlayed || []), JSON.stringify(data.games || {}) 
+        ]);
+      }
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // 1.2 SIMPAN MARKAH GAME BIASA KE DALAM SHEET "Scores"
+    // ========================================================
+    else if (data.action === "submitScore") {
+      var sheet = ss.getSheetByName("Scores"); // Pastikan nama sheet di Google Sheets adalah "Scores"
+      
+      // Ambil masa sekarang
+      var timestamp = new Date();
+      
+      // Masukkan maklumat ke dalam baris baru (Baris bawah sekali)
+      // Susunan Lajur: Timestamp | Nama | Kelas | Jenis Game | Markah | Total
+      sheet.appendRow([timestamp, data.name, data.cls, data.type, data.score, data.total]);
+      
+      return ContentService.createTextOutput(JSON.stringify({ result: "success" })).setMimeType(ContentService.MimeType.JSON);
+    } 
+    
+    // -----------------------------------------------------------------
+    // 2. CIPTA CABARAN BAHARU
+    // -----------------------------------------------------------------
+    else if (data.action === "createChallenge") {
+      var sheet = ss.getSheetByName("Challenges");
+      if (!sheet) sheet = ss.insertSheet("Challenges"); 
+      sheet.appendRow([data.challengeCode, data.challengerName, data.challengerClass, data.gameType, data.challengerScore, new Date(), "Active"]);
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 3. TUTUP CABARAN
+    // -----------------------------------------------------------------
+    else if (data.action === "completeChallenge") {
+      var sheet = ss.getSheetByName("Challenges");
+      if (sheet) {
+        var rows = sheet.getDataRange().getValues();
+        for (var i = 1; i < rows.length; i++) {
+          if (rows[i][0].toString().toUpperCase() === data.challengeCode.toUpperCase()) {
+            sheet.getRange(i + 1, 7).setValue("Completed"); 
+            break;
+          }
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 3.5 MENCARI MAKLUMAT CABARAN (JOIN CHALLENGE)
+    // -----------------------------------------------------------------
+    else if (data.action === "getChallenge") {
+      var sheet = ss.getSheetByName("Challenges");
+      if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: "Sistem cabaran belum sedia."})).setMimeType(ContentService.MimeType.JSON);
+
+      var challengeCode = data.challengeCode.toString().trim().toUpperCase();
+      var rows = sheet.getDataRange().getValues();
+      var found = false;
+
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0].toString().toUpperCase() === challengeCode) {
+          found = true;
+          var status = rows[i][6].toString(); 
+
+          if (status === "Completed") {
+            return ContentService.createTextOutput(JSON.stringify({error: "Maaf, cabaran ini telah pun tamat atau diselesaikan oleh orang lain!"})).setMimeType(ContentService.MimeType.JSON);
+          }
+
+          return ContentService.createTextOutput(JSON.stringify({
+            "result": "success",
+            "challengerName": rows[i][1],
+            "challengerClass": rows[i][2],
+            "gameType": rows[i][3],
+            "challengerScore": Number(rows[i][4])
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
+      if (!found) {
+        return ContentService.createTextOutput(JSON.stringify({error: "Kod cabaran tidak sah atau tidak wujud!"})).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 4. PEMBELIAN EDU SHOP
+    // -----------------------------------------------------------------
+    else if (data.action === "buyEduItem") {
+      var playerSheet = ss.getSheetByName("Players");
+      var invSheet = ss.getSheetByName("EduInventory");
+      var orderSheet = ss.getSheetByName("EduOrders");
+
+      if (!invSheet) return ContentService.createTextOutput(JSON.stringify({error: "Sistem Inventory belum sedia."})).setMimeType(ContentService.MimeType.JSON);
+      
+      if (!orderSheet) {
+        orderSheet = ss.insertSheet("EduOrders");
+        orderSheet.appendRow(["OrderID", "Timestamp", "StudentName", "StudentClass", "ItemID", "ItemName", "Quantity", "TotalCost", "Status"]);
+      }
+
+      var playerName = data.name.trim().toUpperCase();
+      var playerClass = data.class ? data.class.trim().toUpperCase() : "-";
+      var itemID = data.itemID;
+      var quantity = Number(data.quantity) || 1;
+
+      var invRows = invSheet.getDataRange().getValues();
+      var itemRowIndex = -1;
+      var itemPrice = 0, itemStock = 0, itemName = "", limitType = "";
+
+      for (var i = 1; i < invRows.length; i++) {
+        if (invRows[i][0] === itemID) {
+          itemRowIndex = i + 1;
+          itemName = invRows[i][1];
+          itemPrice = Number(invRows[i][2]);
+          itemStock = Number(invRows[i][3]);
+          limitType = invRows[i][4].toString().toLowerCase();
+          break;
+        }
+      }
+
+      if (itemRowIndex === -1) return ContentService.createTextOutput(JSON.stringify({error: "Item tidak wujud!"})).setMimeType(ContentService.MimeType.JSON);
+      if (itemStock < quantity) return ContentService.createTextOutput(JSON.stringify({error: "Stok fizikal tidak mencukupi!"})).setMimeType(ContentService.MimeType.JSON);
+
+      var totalCost = itemPrice * quantity;
+
+      var pRows = playerSheet.getDataRange().getValues();
+      var playerRowIndex = -1;
+      var playerCoins = 0;
+
+      for (var p = 1; p < pRows.length; p++) {
+        var sheetPlayerName = pRows[p][0].toString().trim().toUpperCase();
+        if (sheetPlayerName === playerName) {
+          playerRowIndex = p + 1;
+          playerCoins = Number(pRows[p][2]);
+          break;
+        }
+      }
+
+      if (playerRowIndex === -1) return ContentService.createTextOutput(JSON.stringify({error: "Data pemain tidak dijumpai!"})).setMimeType(ContentService.MimeType.JSON);
+      if (playerCoins < totalCost) return ContentService.createTextOutput(JSON.stringify({error: "Koin anda tidak mencukupi!"})).setMimeType(ContentService.MimeType.JSON);
+
+      var oRows = orderSheet.getDataRange().getValues();
+      var totalBought = 0;
+      var now = new Date();
+
+      for (var o = 1; o < oRows.length; o++) {
+        if (oRows[o][2].toString().toUpperCase() === playerName && oRows[o][4] === itemID) {
+          var orderDate = new Date(oRows[o][1]);
+          var isSamePeriod = false;
+
+          if (limitType === 'daily' && orderDate.toDateString() === now.toDateString()) isSamePeriod = true;
+          if (limitType === 'monthly' && orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear()) isSamePeriod = true;
+          if (limitType === 'yearly' && orderDate.getFullYear() === now.getFullYear()) isSamePeriod = true;
+
+          if (isSamePeriod) totalBought += Number(oRows[o][6]);
+        }
+      }
+
+      if (totalBought > 0) {
+        var limitMsg = limitType === 'daily' ? "hari ini" : limitType === 'monthly' ? "bulan ini" : "tahun ini";
+        return ContentService.createTextOutput(JSON.stringify({error: "Had maksimum dicapai! Anda hanya boleh beli 1 unit " + limitMsg + "."})).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      invSheet.getRange(itemRowIndex, 4).setValue(itemStock - quantity); 
+      
+      var newOrderID = "ORD" + Math.floor(1000 + Math.random() * 9000); 
+      orderSheet.appendRow([newOrderID, new Date(), playerName, playerClass, itemID, itemName, quantity, totalCost, "Pending"]);
+
+      return ContentService.createTextOutput(JSON.stringify({
+          "result": "success", 
+          "newStock": itemStock - quantity
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 4.5. ADMIN: KEMASKINI STATUS PESANAN (PENDING -> SUCCESS)
+    // -----------------------------------------------------------------
+    else if (data.action === "completeOrder") {
+      var orderSheet = ss.getSheetByName("EduOrders");
+      var playerSheet = ss.getSheetByName("Players"); 
+      
+      if (!orderSheet || !playerSheet) {
+        return ContentService.createTextOutput(JSON.stringify({error: "Database EduOrders atau Players tidak dijumpai!"})).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      var orderID = data.orderID;
+      var orderRows = orderSheet.getDataRange().getValues();
+      var foundOrderRow = -1;
+      
+      var playerName = "";
+      var totalCost = 0;
+
+      for (var i = 1; i < orderRows.length; i++) {
+        if (orderRows[i][0].toString() === orderID.toString()) {
+          foundOrderRow = i + 1; 
+          playerName = orderRows[i][2].toString().trim().toUpperCase(); 
+          totalCost = parseInt(orderRows[i][7]) || 0; 
+          break;
+        }
+      }
+
+      if (foundOrderRow !== -1) {
+        var playerRows = playerSheet.getDataRange().getValues();
+        var playerFound = false;
+
+        for (var p = 1; p < playerRows.length; p++) {
+          if (playerRows[p][0].toString().trim().toUpperCase() === playerName) {
+            var currentCoins = parseInt(playerRows[p][2]) || 0; 
+            var newCoins = currentCoins - totalCost; 
+            
+            playerSheet.getRange(p + 1, 3).setValue(newCoins);
+            playerFound = true;
+            break;
+          }
+        }
+
+        if (!playerFound) {
+           return ContentService.createTextOutput(JSON.stringify({error: "Gagal: Data pelajar tidak dijumpai untuk pemotongan koin!"})).setMimeType(ContentService.MimeType.JSON);
+        }
+
+        orderSheet.getRange(foundOrderRow, 9).setValue("Success");
+        
+        return ContentService.createTextOutput(JSON.stringify({"result":"success", "message": "Pesanan disahkan dan koin pelajar telah ditolak!"})).setMimeType(ContentService.MimeType.JSON);
+        
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({error: "ID Pesanan tidak ditemui!"})).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 4.6. ADMIN: SIMPAN / KEMASKINI ITEM INVENTORY (LAMA)
+    // -----------------------------------------------------------------
+    else if (data.action === "saveEduItem") {
+      var invSheet = ss.getSheetByName("EduInventory");
+      if (!invSheet) {
+        invSheet = ss.insertSheet("EduInventory");
+        invSheet.appendRow(["ItemID", "ItemName", "Price", "Stock", "LimitType", "Category", "IconClass", "Descriptions"]);
+      }
+
+      var rows = invSheet.getDataRange().getValues();
+      var itemID = data.itemID;
+      var foundRow = -1;
+
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0].toString() === itemID.toString()) {
+          foundRow = i + 1;
+          break;
+        }
+      }
+
+      var rowData = [
+        itemID, 
+        data.itemName, 
+        Number(data.price), 
+        Number(data.stock), 
+        data.limitType, 
+        data.category, 
+        data.iconClass, 
+        data.descriptions
+      ];
+
+      if (foundRow !== -1) {
+        invSheet.getRange(foundRow, 1, 1, 8).setValues([rowData]);
+      } else {
+        invSheet.appendRow(rowData);
+      }
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 4.7. ADMIN: PADAM ITEM INVENTORY
+    // -----------------------------------------------------------------
+    else if (data.action === "deleteEduItem") {
+      var invSheet = ss.getSheetByName("EduInventory");
+      var rows = invSheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0].toString() === data.id.toString()) {
+          invSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // =================================================================
+    // 4.8. ADMIN: TAMBAH ITEM BARU KE INVENTORI (BARU)
+    // =================================================================
+    else if (data.action === "addEduItem") {
+      var invSheet = ss.getSheetByName("EduInventory");
+      if (!invSheet) return ContentService.createTextOutput(JSON.stringify({error: "Sheet EduInventory tidak dijumpai!"})).setMimeType(ContentService.MimeType.JSON);
+
+      var id = data.id;
+      var name = data.name;
+      var price = data.price;
+      var stock = data.stock;
+      var limitType = data.limitType; 
+      var category = data.category;
+      var icon = data.icon;
+      var desc = data.desc;
+
+      invSheet.appendRow([id, name, price, stock, limitType, category, icon, desc]);
+
+      return ContentService.createTextOutput(JSON.stringify({"result": "success", "message": "Item berjaya ditambah!"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // =================================================================
+    // 4.9. ADMIN: KEMASKINI (UPDATE) ITEM SEDIA ADA (BARU)
+    // =================================================================
+    else if (data.action === "updateEduItem") {
+      var invSheet = ss.getSheetByName("EduInventory");
+      var invData = invSheet.getDataRange().getValues();
+      var idToUpdate = data.id;
+      var foundRow = -1;
+
+      for (var i = 1; i < invData.length; i++) {
+        if (invData[i][0].toString().toUpperCase() === idToUpdate.toUpperCase()) {
+          foundRow = i + 1;
+          break;
+        }
+      }
+
+      if (foundRow !== -1) {
+        invSheet.getRange(foundRow, 2).setValue(data.name);        
+        invSheet.getRange(foundRow, 3).setValue(data.price);       
+        invSheet.getRange(foundRow, 4).setValue(data.stock);       
+        invSheet.getRange(foundRow, 5).setValue(data.limitType);   
+        invSheet.getRange(foundRow, 6).setValue(data.category);    
+        invSheet.getRange(foundRow, 7).setValue(data.icon);        
+        invSheet.getRange(foundRow, 8).setValue(data.desc);        
+
+        return ContentService.createTextOutput(JSON.stringify({"result": "success", "message": "Item berjaya dikemaskini!"})).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({error: "ID Item tidak ditemui untuk dikemaskini!"})).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 6. MENCIPTA BOSS BARU (DARI PANEL GM)
+    // -----------------------------------------------------------------
+    else if (data.action === "createBossEvent") {
+      var bossSheet = ss.getSheetByName("BossEvent"); 
+      var eventID = "BOSS_" + new Date().getTime();
+      
+      // Set semua Boss lama kepada FINISHED sebelum buat yang baru
+      var lastRow = bossSheet.getLastRow();
+      if (lastRow > 1) {
+        var statusRange = bossSheet.getRange(2, 11, lastRow - 1, 1);
+        var values = statusRange.getValues();
+        for (var i = 0; i < values.length; i++) { values[i][0] = "FINISHED"; }
+        statusRange.setValues(values);
+      }
+
+      // Masukkan data Boss baru
+      bossSheet.appendRow([
+        eventID, 
+        data.bossAvatar, 
+        data.maxHp, 
+        data.currentHp, 
+        data.gameCategory, 
+        data.startTime, 
+        data.endTime, 
+        "", "", "", "ACTIVE"
+      ]);
+      
+      return ContentService.createTextOutput(JSON.stringify({result: "success", eventID: eventID})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 7. MENGAMBIL STATUS BOSS (UNTUK PAPARAN MURID)
+    // -----------------------------------------------------------------
+    else if (data.action === "getBossStatus") {
+      var bossSheet = ss.getSheetByName("BossEvent");
+      var rows = bossSheet.getDataRange().getValues();
+      var activeBoss = null;
+
+      for (var i = rows.length - 1; i >= 1; i--) {
+        if (rows[i][10] === "ACTIVE") {
+          activeBoss = {
+            eventID: rows[i][0],
+            avatar: rows[i][1],
+            maxHP: rows[i][2],
+            currentHP: rows[i][3],
+            category: rows[i][4],
+            startTime: rows[i][5],
+            endTime: rows[i][6],
+            firstHit: rows[i][7],
+            firstDie: rows[i][8], 
+            lastHit: rows[i][9]
+          };
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({result: "success", boss: activeBoss})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 8. LOGIK KEMATIAN PEMAIN (FIRST DIE = 100 COINS)
+    // -----------------------------------------------------------------
+    else if (data.action === "submitPlayerDeath") {
+      var bossSheet = ss.getSheetByName("BossEvent");
+      var rows = bossSheet.getDataRange().getValues();
+      var eventID = data.eventID;
+      var studentName = data.studentName;
+
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0] === eventID && rows[i][10] === "ACTIVE") {
+          // Lajur 'FirstDie' ialah Index 8 (Lajur I)
+          if (rows[i][8] === "") { 
+            bossSheet.getRange(i + 1, 9).setValue(studentName); 
+            addRewardCoins(studentName, 100); // Masukkan 100 koin terus
+          }
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({result: "success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 9. SUBMIT DAMAGE (APABILA MURID JAWAB BETUL)
+    // -----------------------------------------------------------------
+    else if (data.action === "submitDamage") {
+      var bossSheet = ss.getSheetByName("BossEvent");
+      var damageSheet = ss.getSheetByName("BossDamage");
+      var rows = bossSheet.getDataRange().getValues();
+      var eventID = data.eventID;
+      var damage = parseInt(data.damage);
+      var studentName = data.studentName;
+      
+      for (var i = 1; i < rows.length; i++) {
+        if (rows[i][0] === eventID && rows[i][10] === "ACTIVE") {
+          var currentHP = parseInt(rows[i][3]);
+          var newHP = Math.max(0, currentHP - damage);
+          
+          // Kemaskini HP di Sheet
+          bossSheet.getRange(i + 1, 4).setValue(newHP);
+
+          // Semak First Hit (Index 7)
+          if (rows[i][7] === "") {
+            bossSheet.getRange(i + 1, 8).setValue(studentName);
+          }
+
+          var isBossDeadNow = false;
+          // Semak Last Hit (Membunuh Boss) - Index 9
+          if (newHP === 0 && rows[i][9] === "") {
+            bossSheet.getRange(i + 1, 10).setValue(studentName);
+            bossSheet.getRange(i + 1, 11).setValue("FINISHED"); // Tukar status boss
+            isBossDeadNow = true;
+          }
+
+          // Rekod/Update Damage Murid
+          var dRows = damageSheet.getDataRange().getValues();
+          var found = false;
+          for (var j = 1; j < dRows.length; j++) {
+            if (dRows[j][0] === eventID && dRows[j][1] === studentName) {
+              damageSheet.getRange(j + 1, 3).setValue(parseInt(dRows[j][2]) + damage);
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            damageSheet.appendRow([eventID, studentName, damage]);
+          }
+
+          // WAJIB KEMASKINI SHEET DAHULU SEBELUM KIRA GANJARAN
+          SpreadsheetApp.flush(); 
+
+          // Jika boss mati kali ini, panggil fungsi pengiraan ganjaran
+          if (isBossDeadNow) {
+            distributeBossRewards(eventID, studentName);
+          }
+          
+          return ContentService.createTextOutput(JSON.stringify({result: "success", newHP: newHP})).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 9.5 DAPATKAN KEPUTUSAN PENUH & RANKING SELEPAS BOSS MATI
+    // -----------------------------------------------------------------
+    else if (data.action === "getBossResults") {
+      var eventID = data.eventID;
+      var bossSheet = ss.getSheetByName("BossEvent");
+      var damageSheet = ss.getSheetByName("BossDamage");
+      
+      // 1. Cari Siapa Last Hit
+      var bRows = bossSheet.getDataRange().getValues();
+      var lastHitName = "";
+      for (var i = 1; i < bRows.length; i++) {
+        if (bRows[i][0] === eventID) {
+          lastHitName = bRows[i][9]; // Lajur J (Index 9) ialah LastHit
+          break;
+        }
+      }
+
+      // 2. Kumpul semua damage untuk event ini
+      var dRows = damageSheet.getDataRange().getValues();
+      var playerDamages = {};
+      
+      for (var j = 1; j < dRows.length; j++) {
+        if (dRows[j][0] === eventID) {
+          var pName = dRows[j][1];
+          var pDamage = Number(dRows[j][2]) || 0;
+          if (!playerDamages[pName]) {
+            playerDamages[pName] = 0;
+          }
+          playerDamages[pName] += pDamage;
+        }
+      }
+
+      // 3. Susun masuk array & sort ranking (Tertinggi ke terendah)
+      var rankingArray = [];
+      for (var name in playerDamages) {
+        rankingArray.push({ name: name, damage: playerDamages[name] });
+      }
+      
+      rankingArray.sort(function(a, b) {
+        return b.damage - a.damage;
+      });
+
+      // 4. Kira jumlah syiling yang mereka dapat untuk dipaparkan
+      for (var rank = 0; rank < rankingArray.length; rank++) {
+        var earnedCoins = 0;
+        var pDamage = rankingArray[rank].damage;
+        
+        if (rank === 0) earnedCoins = pDamage + 1000;
+        else if (rank === 1) earnedCoins = pDamage + 700;
+        else if (rank === 2) earnedCoins = pDamage + 500;
+        else earnedCoins = pDamage + 250;
+        
+        // Tambah +500 jika dia yang buat Last Hit
+        if (rankingArray[rank].name === lastHitName) {
+          earnedCoins += 500;
+          rankingArray[rank].isLastHit = true;
+        } else {
+          rankingArray[rank].isLastHit = false;
+        }
+        
+        rankingArray[rank].coinsEarned = earnedCoins;
+      }
+
+      // Hantar semula data lengkap ini ke UI (boss.js)
+      return ContentService.createTextOutput(JSON.stringify({
+        result: "success",
+        lastHit: lastHitName,
+        rankings: rankingArray
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -----------------------------------------------------------------
+    // 10. SIMPAN MARKAH GAME BIASA (PENTING: Mesti jadi yang terakhir)
+    // -----------------------------------------------------------------
+    else {
+      var sheet = ss.getSheetByName("Scores");
+      if (!sheet) sheet = ss.getSheets()[0]; 
+      sheet.appendRow([new Date(), data.name, data.class, data.type, data.score, data.total, JSON.stringify(data.activeAvatar || null)]);
+      return ContentService.createTextOutput(JSON.stringify({"result":"success"})).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ====================================================================
+// FUNGSI BANTUAN (HELPER FUNCTIONS)
+// SILA BIARKAN FUNGSI INI DI LUAR DAN DI BAWAH FUNGSI doPost(e)
+// ====================================================================
+
+function addRewardCoins(playerName, amountToAdd) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Players");
+  if (!sheet) return;
+  var data = sheet.getDataRange().getValues();
+  
+  for (var i = 1; i < data.length; i++) {
+    // Cari nama yang sama di Lajur A
+    if (data[i][0].toString().trim().toUpperCase() === playerName.toString().trim().toUpperCase()) { 
+      var currentCoins = Number(data[i][2]) || 0; // Lajur C ialah Coins
+      sheet.getRange(i + 1, 3).setValue(currentCoins + amountToAdd);
+      break;
+    }
+  }
+}
+
+function distributeBossRewards(eventID, lastHitPlayerName) {
+  // 1. GANJARAN LAST HIT: +500 Coins
+  if (lastHitPlayerName) {
+    addRewardCoins(lastHitPlayerName, 500);
+  }
+  
+  var damageSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("BossDamage");
+  if (!damageSheet) return;
+  var damageData = damageSheet.getDataRange().getValues();
+  
+  // 2. KUMPUL TOTAL DAMAGE SETIAP PEMAIN
+  var playerDamages = {};
+  for (var i = 1; i < damageData.length; i++) {
+    var rowEventID = damageData[i][0]; 
+    var rowName = damageData[i][1];    
+    var rowDamage = Number(damageData[i][2]) || 0; 
+    
+    if (rowEventID === eventID) {
+      if (!playerDamages[rowName]) {
+        playerDamages[rowName] = 0;
+      }
+      playerDamages[rowName] += rowDamage;
+    }
+  }
+  
+  // 3. SUSUN RANKING (SORTING)
+  var damageArray = [];
+  for (var name in playerDamages) {
+    damageArray.push({ name: name, damage: playerDamages[name] });
+  }
+  
+  damageArray.sort(function(a, b) {
+    return b.damage - a.damage;
+  });
+  
+  // 4. AGIHKAN GANJARAN
+  for (var rank = 0; rank < damageArray.length; rank++) {
+    var pName = damageArray[rank].name;
+    var pDamage = damageArray[rank].damage;
+    var rewardCoins = 0;
+    
+    if (rank === 0) {
+      rewardCoins = pDamage + 1000; // Tempat Pertama
+    } else if (rank === 1) {
+      rewardCoins = pDamage + 700;  // Tempat Kedua
+    } else if (rank === 2) {
+      rewardCoins = pDamage + 500;  // Tempat Ketiga
+    } else {
+      rewardCoins = pDamage + 250;  // Saguhati Peserta Lain
+    }
+    
+    addRewardCoins(pName, rewardCoins);
+  }
+}
+
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Pastikan ada parameter dalam URL
+  if (!e || !e.parameter) {
+    return ContentService.createTextOutput(JSON.stringify({error: "Tiada parameter dikesan"})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var action = e.parameter.action;
+
+  // -----------------------------------------------------------------
+  // 1. DAPATKAN DATA PEMAIN & SEMAK PIN
+  // -----------------------------------------------------------------
+  if (action === "getPlayer") {
+    var sheet = ss.getSheetByName("Players");
+    if (!sheet) return ContentService.createTextOutput(JSON.stringify(null)).setMimeType(ContentService.MimeType.JSON);
+    
+    var rows = sheet.getDataRange().getValues();
+    var name = e.parameter.name.toUpperCase();
+    var cls = e.parameter.cls.toUpperCase();
+    var passcode = e.parameter.passcode || ""; 
+    
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0].toString().toUpperCase() === name && rows[i][1].toString().toUpperCase() === cls) {
+        var dbPasscode = rows[i][6] ? rows[i][6].toString() : "";
+        if (dbPasscode !== "" && dbPasscode !== passcode) {
+          return ContentService.createTextOutput(JSON.stringify({error: "WrongPIN"})).setMimeType(ContentService.MimeType.JSON);
+        }
+
+        return ContentService.createTextOutput(JSON.stringify({
+          coins: rows[i][2],
+          inventory: JSON.parse(rows[i][3] || "[]"),
+          avatars: JSON.parse(rows[i][4] || "{}"),
+          activeAvatar: rows[i][5] ? JSON.parse(rows[i][5]) : null,
+          hasPin: (dbPasscode !== ""),
+          achievements: JSON.parse(rows[i][7] || "[]"),  
+          activeTitle: rows[i][8] || "Novice",           
+          Total: rows[i][9] || 0,                        
+          claimedLevels: JSON.parse(rows[i][10] || "[]"),
+          lastPlayed: JSON.parse(rows[i][11] || "[]"),   
+          games: JSON.parse(rows[i][12] || "{}")         
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify(null)).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  // -----------------------------------------------------------------
+  // 2. DAPATKAN DATA EDU INVENTORY
+  // -----------------------------------------------------------------
+  else if (action === "getEduInventory") {
+    var invSheet = ss.getSheetByName("EduInventory");
+    if (!invSheet) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    
+    var rows = invSheet.getDataRange().getValues();
+    var inventoryData = [];
+    
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0]) {
+        inventoryData.push({
+          id: rows[i][0],
+          name: rows[i][1],
+          price: Number(rows[i][2]),
+          stock: Number(rows[i][3]),
+          limitType: rows[i][4],
+          category: rows[i][5],
+          icon: rows[i][6],
+          desc: rows[i][7]
+        });
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify(inventoryData)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // -----------------------------------------------------------------
+  // 3. SEMAK KOD CABARAN
+  // -----------------------------------------------------------------
+  else if (action === "getChallenge") {
+    var sheet = ss.getSheetByName("Challenges");
+    if (!sheet) return ContentService.createTextOutput(JSON.stringify({error: "Database belum bersedia."})).setMimeType(ContentService.MimeType.JSON);
+    
+    var rows = sheet.getDataRange().getValues();
+    var code = e.parameter.challengeCode.toUpperCase().trim();
+    
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0].toString().toUpperCase() === code) {
+        var status = rows[i][6];
+        var createdAt = new Date(rows[i][5]);
+        var now = new Date();
+        var diffHours = Math.abs(now - createdAt) / 36e5;
+        
+        if (status !== "Active") return ContentService.createTextOutput(JSON.stringify({error: "Maaf, cabaran ini telah diselesaikan!"})).setMimeType(ContentService.MimeType.JSON);
+        if (diffHours > 24) {
+          sheet.getRange(i + 1, 7).setValue("Expired"); 
+          return ContentService.createTextOutput(JSON.stringify({error: "Maaf, cabaran ini luput (melebihi 24 jam)!"})).setMimeType(ContentService.MimeType.JSON);
+        }
+        
+        return ContentService.createTextOutput(JSON.stringify({
+          challengerName: rows[i][1], challengerClass: rows[i][2], gameType: rows[i][3], challengerScore: rows[i][4]
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({error: "Kod tidak sah."})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // -----------------------------------------------------------------
+  // 3.5. DAPATKAN SEMUA PESANAN (ADMIN)
+  // -----------------------------------------------------------------
+  else if (action === "getAllOrders") {
+    var orderSheet = ss.getSheetByName("EduOrders");
+    if (!orderSheet) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+    
+    var dataRows = orderSheet.getDataRange().getValues();
+    var orders = [];
+    
+    for (var i = 1; i < dataRows.length; i++) {
+      if (dataRows[i][0]) {
+        orders.push({
+          orderID: dataRows[i][0],
+          timestamp: dataRows[i][1],
+          studentName: dataRows[i][2],
+          studentClass: dataRows[i][3],
+          itemID: dataRows[i][4],
+          itemName: dataRows[i][5],
+          quantity: dataRows[i][6],
+          totalCost: dataRows[i][7],
+          status: dataRows[i][8]
+        });
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify(orders)).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // =================================================================
+  // 3.6. SEMAK STATUS BOSS AKTIF (UTAMA)
+  // =================================================================
+  else if (action === "getActiveBoss") {
+    var bossSheet = ss.getSheetByName("BossEvent"); 
+    if (!bossSheet) return ContentService.createTextOutput(JSON.stringify({error: "Tiada sheet BossEvent"})).setMimeType(ContentService.MimeType.JSON);
+
+    var rows = bossSheet.getDataRange().getValues();
+    var activeBoss = null;
+
+    for (var i = rows.length - 1; i >= 1; i--) {
+      var status = rows[i][10] ? rows[i][10].toString().trim().toUpperCase() : "";
+      if (status === "ACTIVE") {
+        activeBoss = {
+          eventID: rows[i][0],
+          bossAvatar: rows[i][1],
+          maxHp: rows[i][2],
+          currentHp: rows[i][3],
+          gameCategory: rows[i][4],
+          startTime: rows[i][5],
+          endTime: rows[i][6]
+        };
+        break; 
+      }
+    }
+
+    if (activeBoss) {
+      return ContentService.createTextOutput(JSON.stringify(activeBoss)).setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({error: "Tiada boss aktif"})).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // -----------------------------------------------------------------
+  // 4. LEADERBOARD (Jika tiada 'action' yang padan, baru hantar Leaderboard)
+  // -----------------------------------------------------------------
+  var playersSheet = ss.getSheetByName("Players");
+  if (!playersSheet) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
+  
+  var playersRows = playersSheet.getDataRange().getValues();
+  var lbData = [];
+  
+  for (var i = 1; i < playersRows.length; i++) {
+    if (playersRows[i][0]) { 
+      lbData.push({
+        name: playersRows[i][0],                       
+        cls: playersRows[i][1],                       
+        total: Number(playersRows[i][9]) || 0, 
+        activeAvatar: playersRows[i][5] ? JSON.parse(playersRows[i][5]) : null, 
+        activeTitle: playersRows[i][8] || "Novice"
+      });
+    }
+  }
+
+  lbData.sort(function(a, b) { return b.total - a.total; });
+  return ContentService.createTextOutput(JSON.stringify(lbData)).setMimeType(ContentService.MimeType.JSON);
+}

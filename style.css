@@ -1,0 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+/* ==========================================
+   TETAPAN ASAS & LATAR BELAKANG
+   ========================================== */
+body { 
+    font-family: 'Poppins', sans-serif; 
+    /* Gantikan 'bg-fantasy.png' dengan pautan gambar anda jika mahu guna gambar */
+    /* background-image: url('bg-fantasy.png'); 
+    background-size: cover; 
+    background-position: center; 
+    background-attachment: fixed; 
+    background-repeat: no-repeat; */
+}
+
+.glass { 
+    background: rgba(255, 255, 255, 0.95); 
+    backdrop-filter: blur(10px); 
+}
+
+.custom-scroll::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; }
+
+/* Kelas untuk kotak log masuk anda (Jika masih guna) */
+.login-container {
+    background-color: rgba(255, 255, 255, 0.85); 
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    backdrop-filter: blur(5px); 
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+/* ==========================================
+   ANIMASI AVATAR & LEADERBOARD
+   ========================================== */
+/* Custom animation for Level 3 Legendary Avatars */
+@keyframes legendaryGlow {
+    0%, 100% { filter: drop-shadow(0 0 5px currentColor); opacity: 1; }
+    50% { filter: drop-shadow(0 0 15px currentColor); opacity: 0.8; }
+}
+
+.legendary-avatar {
+    animation: legendaryGlow 2s infinite ease-in-out;
+}
+
+/* Animasi 3D dan Bercahaya Untuk Leaderboard */
+@keyframes avatar3DGlow {
+    0% { box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 0 10px #fcd34d; transform: translateY(0px) scale(1); }
+    50% { box-shadow: 0 10px 15px rgba(0,0,0,0.4), 0 0 25px #fbbf24; transform: translateY(-3px) scale(1.05); }
+    100% { box-shadow: 0 4px 6px rgba(0,0,0,0.3), 0 0 10px #fcd34d; transform: translateY(0px) scale(1); }
+}
+
+.avatar-3d-glow {
+    animation: avatar3DGlow 2.5s infinite ease-in-out;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 2px solid #fbbf24;
+}
+
+/* ==========================================
+   GAYA PANGKAT (TITLE / RANKS)
+   ========================================== */
+/* 1. COMMON (Simple & Clean) */
+.title-common {
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    background: #f1f5f9;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+/* 2. RARE (Blue Glow) */
+.title-rare {
+    color: #1d4ed8;
+    border: 1px solid #3b82f6;
+    background: #eff6ff;
+    font-weight: bold;
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+    padding: 1px 8px;
+    border-radius: 4px;
+}
+
+/* 3. EPIC (Purple Animated) */
+.title-epic {
+    background: linear-gradient(45deg, #7c3aed, #db2777);
+    color: white;
+    font-weight: bold;
+    padding: 2px 10px;
+    border-radius: 50px;
+    animation: pulseEpic 2s infinite;
+}
+@keyframes pulseEpic {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); box-shadow: 0 0 10px #7c3aed; }
+    100% { transform: scale(1); }
+}
+
+/* 4. LEGENDARY (Versi Lencana Emas Diraja - Elegan & Premium) */
+.title-legendary {
+    display: inline-block;
+    background: linear-gradient(135deg, #854d0e 0%, #ca8a04 50%, #854d0e 100%);
+    color: #ffffff !important;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px; /* Dibaiki */
+    border: 1px solid #fde047;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    position: relative; 
+    overflow: hidden;
+    animation: legendaryPulse 6s infinite ease-in-out;
+}
+
+.title-legendary::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -100%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(
+        to right, 
+        rgba(255, 255, 255, 0) 0%, 
+        rgba(255, 255, 255, 0.6) 50%, 
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: rotate(30deg);
+    animation: shineSweep 5s infinite;
+}
+
+@keyframes shineSweep {
+    0% { left: -100%; }
+    20% { left: 150%; }
+    100% { left: 150%; }
+}
+
+@keyframes legendaryPulse {
+    0% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.3); transform: scale(1); }
+    50% { box-shadow: 0 0 18px rgba(234, 179, 8, 0.6); transform: scale(1.03); }
+    100% { box-shadow: 0 0 5px rgba(234, 179, 8, 0.3); transform: scale(1); }
+}
+
+/* Gaya untuk King of the Beast - Emas Berapi */
+.title-king {
+    background: linear-gradient(90deg, #ff8c00, #ff0000);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+    filter: drop-shadow(0 0 8px rgba(255, 140, 0, 0.8));
+    animation: fireGlow 2s infinite alternate;
+}
+
+/* Gaya untuk Master of Challenges - Versi Jelas & Senang Baca */
+.title-master {
+    background: #be123c; 
+    color: #ffffff !important; 
+    padding: 2px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px; /* Dibaiki */
+    font-weight: 800;
+    font-size: 10px;
+    display: inline-block;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); 
+    border: 1px solid #9f1239;
+}
+
+/* Gaya untuk Legendary Beast - Ungu Galaxy */
+.title-legendary-beast {
+    background: linear-gradient(45deg, #8a2be2, #4b0082, #0000ff);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: rainbowMove 3s ease infinite;
+    font-weight: 900;
+}
+
+@keyframes fireGlow {
+    from { filter: drop-shadow(0 0 2px #ff8c00); }
+    to { filter: drop-shadow(0 0 15px #ff0000); }
+}
+
+@keyframes rainbowMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ==========================================
+   LENCANA & TEKS MARKAH
+   ========================================== */
+.mastered-badge {
+    background-color: #10b981; 
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Pastikan overlay boss berada di lapisan yang betul */
+#boss-battle-overlay {
+    position: fixed; /* atau absolute jika perlu */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 50; /* Di bawah SweetAlert (1060) tapi di atas UI utama */
+    background-color: rgba(0, 0, 0, 0.8); /* Contoh latar belakang gelap */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Pastikan class 'hidden' benar-benar berfungsi */
+.hidden {
+    display: none !important;
+}

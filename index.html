@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexiQuest 2.0 - Firebase Edition</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto"> 
+        
+        <div id="auth-screen" class="glass rounded-3xl shadow-2xl p-8 text-center animate-fade-in max-w-4xl mx-auto">
+            <h1 class="text-4xl font-bold text-indigo-700 mb-2">Welcome, Explorer! 🚀</h1>
+            <p class="text-gray-600 mb-8">Ready to test your English skills?</p>
+            
+            <div id="login-screen" class="space-y-4 max-w-sm mx-auto text-left">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Full Name:</label>
+                    <input type="text" id="login-name" class="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 focus:ring-0 transition-all uppercase" placeholder="AS PER CLASS LIST">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Class:</label>
+                    <input type="text" id="login-class" class="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 focus:ring-0 transition-all uppercase" placeholder="E.G. 6 ADIL">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">School:</label>
+                    <select id="login-school" class="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 focus:ring-0 transition-all">
+                        <option value="" disabled selected>-- Select School --</option>
+                        <option value="ADMIN">ADMIN / GAME MASTER</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Passcode / PIN:</label>
+                    <input type="password" id="login-pin" class="w-full px-4 py-3 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 focus:ring-0 transition-all" placeholder="Optional for new players">
+                </div>
+
+                <button onclick="loginStudent()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transform hover:scale-[1.02] transition-all mt-4">
+                    START ADVENTURE
+                </button>
+            </div>
+        </div>
+
+        <div id="menu-screen" class="hidden animate-fade-in">
+            
+<div class="flex justify-between items-center bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-xl mb-8 border border-white/50">
+    
+<div class="flex items-center gap-4">
+<div id="dashboard-avatar-container" onclick="openProfile()" class="w-16 h-16 rounded-2xl bg-indigo-100 border-2 border-indigo-500 flex items-center justify-center shadow-inner cursor-pointer hover:scale-110 transition-transform overflow-hidden text-3xl">
+    </div>       
+        <div>
+            <h2 id="menu-player-name" class="text-xl font-black text-indigo-900 leading-none uppercase">Adventurer</h2>
+            <div class="flex gap-2 my-1">
+		 <span id="menu-player-level" class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-lg border border-green-100">LVL 1</span>
+                 <span id="menu-player-class" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">CLASS</span>
+                 <span id="header-active-title" class="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100">NOVICE</span>
+            </div>
+            
+            <div class="mt-2 w-48 md:w-64">
+                <div class="flex justify-between text-[10px] text-indigo-700 font-black uppercase mb-1">
+                    <span id="xp-text">XP: 0 / 100</span>
+                    <span id="next-level-text">Explorer</span>
+                </div>
+                <div class="w-full bg-indigo-100 rounded-full h-2.5 border border-indigo-200 overflow-hidden">
+                    <div id="xp-bar-fill" class="bg-gradient-to-r from-yellow-400 to-orange-500 h-full rounded-full transition-all duration-1000 shadow-sm" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col items-end gap-3">
+        <div class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-2xl font-bold shadow-[0_4px_0_0_#ca8a04] flex items-center gap-2 border border-yellow-200">
+            <span class="text-xl">💰</span>
+            <span id="user-coins" class="text-xl">0</span>
+        </div>
+        
+        <button onclick="logout()" class="text-[10px] font-black text-red-400 hover:text-red-600 uppercase tracking-widest transition-colors">
+            Logout ➔
+        </button>
+    </div>
+</div>
+
+            <div id="dashboard-super-admin" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
+                <button onclick="openAdminPanel()" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">⚙️</div>
+                    <div class="font-bold text-purple-700">Daftar Admin</div>
+                </button>
+                <button onclick="showScreen('sa-schools-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏫</div>
+                    <div class="font-bold text-purple-700">Senarai Sekolah</div>
+                </button>
+                <button onclick="showScreen('sa-students-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🎓</div>
+                    <div class="font-bold text-purple-700">Senarai Murid</div>
+                </button>
+                <button onclick="showScreen('sa-boss-setup-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🐉</div>
+                    <div class="font-bold text-purple-700">Boss Setup</div>
+                </button>
+                <button onclick="showScreen('sa-analysis-screen')" class="col-span-2 md:col-span-4 glass p-6 rounded-3xl hover:bg-blue-50 transition-all group border-2 border-blue-300">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
+                    <div class="font-bold text-blue-700 text-xl">Analisis Sistem</div>
+                </button>
+            </div>
+
+<div id="dashboard-school-admin" class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
+                <button onclick="openAdminPanel()" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">⚙️</div>
+                    <div class="font-bold text-indigo-700">Daftar Murid</div>
+                </button>
+                <button onclick="showScreen('leaderboard-screen')" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏆</div>
+                    <div class="font-bold text-indigo-700">Leaderboard</div>
+                </button>
+                <button onclick="showScreen('sch-manage-shop-screen')" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏪</div>
+                    <div class="font-bold text-indigo-700">Urus Kedai</div>
+                </button>
+                
+                <button onclick="showScreen('sa-analysis-screen')" class="col-span-1 md:col-span-3 glass p-6 rounded-3xl hover:bg-blue-50 transition-all group border-2 border-blue-300">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
+                    <div class="font-bold text-blue-700 text-xl">Analisis Perkembangan Murid</div>
+                </button>
+            </div>
+
+<div id="dashboard-student" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
+                <button onclick="openSubjectModal()" class="glass p-6 rounded-3xl hover:bg-green-50 transition-all group border-2 border-green-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🎮</div>
+                    <div class="font-bold text-gray-700">Play Game</div>
+                </button>
+                <button onclick="showScreen('leaderboard-screen')" class="glass p-6 rounded-3xl hover:bg-yellow-50 transition-all group border-2 border-yellow-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏆</div>
+                    <div class="font-bold text-gray-700">Rankings</div>
+                </button>
+                <button onclick="showScreen('shop-screen'); switchShopTab('edu');" class="glass p-6 rounded-3xl hover:bg-blue-50 transition-all group border-2 border-blue-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🛒</div>
+                    <div class="font-bold text-gray-700">Shop</div>
+                </button>
+                <button onclick="showAchievementsScreen()" class="glass p-6 rounded-3xl hover:bg-pink-50 transition-all group border-2 border-pink-200">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏅</div>
+                    <div class="font-bold text-gray-700">Medals</div>
+                </button>
+
+                <button onclick="checkChallengeEligibility()" class="col-span-2 md:col-span-4 relative group bg-gradient-to-r from-red-500 to-orange-500 text-white p-4 rounded-2xl shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-3 font-bold text-xl overflow-hidden border-2 border-red-400">
+                    <i class="fas fa-swords text-3xl"></i>
+                    ARENA CABARAN (PvP)
+                    <span class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow-sm">Lvl 15+</span>
+                </button>
+                <button id="boss-challenge-btn" onclick="startBossFight(); showScreen('boss-arena');" class="hidden col-span-2 md:col-span-4 glass p-6 rounded-3xl hover:bg-red-50 transition-all group border-2 border-red-400">
+                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform animate-pulse">🐉</div>
+                    <div class="font-bold text-red-700 text-xl">AMARAN: BOSS MUNCUL!</div>
+                    <div class="text-sm text-gray-600 mt-1">Klik untuk sertai pertempuran!</div>
+                </button>
+            </div>
+	</div>
+
+<div id="game-arena" class="hidden animate-fade-in glass rounded-3xl p-6 md:p-10 max-w-4xl mx-auto shadow-2xl relative">
+            
+            <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b-2 border-indigo-100 pb-4">
+                <button onclick="showScreen('menu-screen')" class="text-gray-600 hover:text-red-600 font-bold bg-white px-4 py-2 rounded-xl shadow-sm">
+                    <i class="fas fa-arrow-left"></i> Run Away
+                </button>
+                
+                <h2 id="game-title" class="text-2xl md:text-3xl font-black text-indigo-800 uppercase tracking-wider text-center">
+                    ARENA
+                </h2>
+                
+                <div class="bg-red-100 border-2 border-red-300 px-6 py-2 rounded-2xl shadow-inner flex items-center gap-2">
+                    <i class="fas fa-hourglass-half text-red-500 animate-pulse"></i>
+                    <span id="timer-text" class="text-xl font-black text-red-600">00:00</span>
+                </div>
+            </div>
+
+            <div id="question-container" class="space-y-4 mb-8 max-h-[55vh] overflow-y-auto pr-2 pb-4">
+                </div>
+
+            <button id="check-btn" onclick="endGame()" class="w-full bg-green-500 hover:bg-green-600 text-white font-black py-4 rounded-xl shadow-lg transition-transform hover:scale-[1.01] text-lg md:text-xl">
+                CHECK ANSWERS & SEE SCORE
+            </button>
+
+            <div id="final-score" class="hidden mt-6 bg-indigo-50 border-2 border-indigo-200 p-8 rounded-2xl text-center shadow-inner">
+                </div>
+                  </div>
+
+<div id="challenge-lobby-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+    <div class="flex justify-between items-center mb-6 border-b pb-4">
+        <div>
+            <h2 class="text-3xl font-black text-red-600"><i class="fas fa-fire-alt mr-2"></i> Arena Cabaran</h2>
+            <p class="text-gray-600 font-bold">Pilih lawan anda (Level 15 dan ke atas sahaja)</p>
+        </div>
+        <button onclick="showScreen('menu-screen')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-xl font-bold transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i> Kembali
+        </button>
+    </div>
+
+    <div class="flex gap-4 mb-6">
+        <button class="flex-1 bg-red-600 text-white py-3 rounded-xl font-black shadow-md border-b-4 border-red-800">1 VS 1 (PvP)</button>
+        <button class="flex-1 bg-gray-300 text-gray-500 py-3 rounded-xl font-black cursor-not-allowed">3 VS 3 (Akan Datang)</button>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl shadow-inner min-h-[300px]">
+        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Senarai Pencabar Berpotensi</h3>
+        <ul id="available-players-list" class="space-y-3">
+            <li class="text-center italic text-gray-400 py-4">⏳ Sedang mengimbas pemain elit...</li>
+        </ul>
+    </div>
+</div>
+
+<div id="pvp-arena" class="hidden animate-fade-in max-w-5xl mx-auto p-4 md:p-8">
+    
+    <div class="bg-gradient-to-r from-red-600 via-purple-600 to-blue-600 rounded-3xl p-4 md:p-6 shadow-2xl text-white flex justify-between items-center mb-6 border-4 border-yellow-400 relative overflow-hidden">
+        
+        <div class="flex flex-col items-center z-10 w-1/3">
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-2 backdrop-blur-sm border-2 border-white shadow-lg">🥷</div>
+            <div id="pvp-p1-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PEMAIN 1</div>
+            <div id="pvp-p1-score" class="text-4xl md:text-5xl font-black text-yellow-300 drop-shadow-lg mt-1">0</div>
+        </div>
+
+        <div class="z-10 flex flex-col items-center w-1/3">
+            <div class="text-5xl md:text-6xl font-black italic text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] animate-bounce">VS</div>
+            <div id="pvp-category-title" class="text-xs md:text-sm font-bold bg-black/60 px-4 py-1 rounded-full mt-2 uppercase tracking-wider text-center">Kategori</div>
+        </div>
+
+        <div class="flex flex-col items-center z-10 w-1/3">
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-2 backdrop-blur-sm border-2 border-white shadow-lg">🧙‍♂️</div>
+            <div id="pvp-p2-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PEMAIN 2</div>
+            <div id="pvp-p2-score" class="text-4xl md:text-5xl font-black text-yellow-300 drop-shadow-lg mt-1">0</div>
+        </div>
+    </div>
+
+    <div class="glass rounded-3xl p-6 md:p-10 shadow-2xl relative border-t-4 border-white bg-white/90">
+        <div class="text-center mb-6">
+            <h3 class="text-gray-500 font-bold uppercase tracking-widest text-sm mb-2">Soalan Semasa</h3>
+            <div id="pvp-question-display" class="text-3xl md:text-5xl font-black text-gray-800 drop-shadow-sm min-h-[80px] flex items-center justify-center">
+                BERSEDIA...
+            </div>
+        </div>
+
+        <div class="max-w-md mx-auto">
+            <input type="text" id="pvp-answer-input" class="w-full text-center text-2xl p-4 rounded-2xl border-4 border-gray-200 focus:border-indigo-500 focus:ring-0 transition-colors uppercase font-bold shadow-inner text-gray-800" placeholder="TAIP JAWAPAN..." disabled autocomplete="off">
+        </div>
+        
+        <div class="mt-8 flex justify-between items-center text-sm font-bold text-gray-400">
+            <span class="bg-gray-100 px-3 py-1 rounded-lg">Soalan <span id="pvp-q-count" class="text-gray-700">1</span></span>
+            <span class="bg-red-50 px-3 py-1 rounded-lg text-red-500 border border-red-100">Masa: <span id="pvp-timer" class="text-xl">60</span>s</span>
+        </div>
+    </div>
+</div>
+
+<div id="leaderboard-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-2xl mx-auto shadow-2xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-indigo-800">Top Explorers 🏆</h2>
+        <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+    <p id="lb-school-name" class="text-sm text-indigo-600 font-bold mb-4 italic">School: -</p>
+    <div id="leaderboard-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div>
+</div>
+
+<div id="shop-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-indigo-800">🛒 Kedai Ganjaran</h2>
+        <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800">
+            <i class="fas fa-times text-2xl"></i>
+        </button>
+    </div>
+
+    <div class="flex gap-2 mb-6 border-b-2 border-indigo-100 pb-3 overflow-x-auto">
+        <button id="tab-btn-edu" onclick="switchShopTab('edu')" class="shop-tab-btn px-5 py-2 bg-indigo-600 text-white font-bold rounded-xl whitespace-nowrap shadow-sm transition-all">
+            📚 Edu Shop
+        </button>
+        <button id="tab-btn-avatar" onclick="switchShopTab('avatar')" class="shop-tab-btn px-5 py-2 bg-gray-200 text-gray-500 hover:bg-gray-300 font-bold rounded-xl whitespace-nowrap transition-all">
+            👤 Avatar
+        </button>
+        <button id="tab-btn-badge" onclick="switchShopTab('badge')" class="shop-tab-btn px-5 py-2 bg-gray-200 text-gray-500 hover:bg-gray-300 font-bold rounded-xl whitespace-nowrap transition-all">
+            🏅 Badges
+        </button>
+    </div>
+
+    <div id="shop-content-edu" class="shop-section">
+        <div id="edu-shop-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="text-center col-span-full py-10 text-gray-500">
+                <i class="fas fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
+                <p>Memuatkan barangan...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="shop-content-avatar" class="shop-section hidden">
+        <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800">Koleksi Guardian</h3>
+            <p class="text-sm text-gray-500">Dapatkan Guardian unik untuk menemani pengembaraan anda!</p>
+        </div>
+        <div id="avatar-shop-items" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </div>
+
+    <div id="shop-content-badge" class="shop-section hidden">
+        <div class="bg-white rounded-2xl p-8 text-center shadow-inner border border-gray-100">
+            <i class="fas fa-medal text-5xl mb-4 text-gray-300"></i>
+            <h3 class="text-xl font-bold text-gray-700">Koleksi Lencana</h3>
+            <p class="text-gray-400">Akan datang! Murid boleh beli lencana (title) di sini.</p>
+        </div>
+    </div>
+</div> <div id="achievements-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+    <div class="flex justify-between items-center mb-6 border-b-2 border-pink-100 pb-4">
+        <div>
+            <h2 class="text-3xl font-black text-pink-600 flex items-center gap-3">
+                <i class="fas fa-medal text-yellow-500 drop-shadow-md"></i> Koleksi Medal
+            </h2>
+            <p class="text-gray-500 text-sm mt-1">Selesaikan cabaran untuk kumpul medal dan syiling!</p>
+        </div>
+        <button onclick="closeAchievementsScreen()" class="text-gray-400 hover:text-red-500 transition-colors">
+            <i class="fas fa-times-circle text-3xl"></i>
+        </button>
+    </div>
+
+    <div class="bg-pink-50 text-pink-700 px-4 py-2 rounded-xl font-bold text-sm inline-block mb-6 shadow-inner border border-pink-100">
+        <i class="fas fa-trophy mr-1"></i> Pencapaian: <span id="achievements-stats">0 / 0</span>
+    </div>
+
+    <div id="achievements-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+    </div>
+</div>
+
+<div id="boss-arena" class="hidden animate-fade-in glass rounded-3xl p-6 max-w-5xl mx-auto relative overflow-hidden flex flex-col md:flex-row gap-6">
+    
+    <div class="flex-1 relative">
+        
+        <div id="damage-indicator" class="hidden absolute top-1/3 left-1/2 transform -translate-x-1/2 text-red-600 font-black text-6xl drop-shadow-[0_0_10px_rgba(255,255,255,1)] z-50 pointer-events-none">
+            -15
+        </div>
+
+        <div class="flex justify-between items-center mb-6 border-b-2 border-gray-200/50 pb-4">
+            <button onclick="leaveBossFight()" class="text-gray-600 hover:text-red-600 font-bold bg-white/30 px-4 py-2 rounded-xl transition-all">
+                <i class="fas fa-arrow-left"></i> Run Away
+            </button>
+            <h2 class="text-2xl font-black text-red-700 animate-pulse hidden md:block">BOSS BATTLE</h2>
+            <div class="text-green-700 font-bold text-lg bg-white/50 px-4 py-2 rounded-xl shadow-sm border border-green-200">
+                <i class="fas fa-heart text-red-500 animate-pulse mr-1"></i> HP Anda: <span id="player-hp-text">100</span>
+            </div>
+        </div>
+
+<div class="bg-black/5 p-6 rounded-3xl border border-red-200/50 flex flex-col items-center mb-6 shadow-inner">
+            <div class="relative w-full max-w-sm h-48 md:h-64 mb-6 flex justify-center items-center">
+                <img id="battle-boss-avatar" src="" alt="Boss" class="w-full h-full object-contain drop-shadow-[0_10px_10px_rgba(220,38,38,0.3)] animate-bounce-slow transform scale-110">
+            </div>
+
+            <div class="w-full bg-white h-8 rounded-full overflow-hidden border-2 border-gray-300 relative shadow-md">
+                <div id="boss-hp-bar" class="bg-gradient-to-r from-red-600 to-red-400 h-full transition-all duration-300 w-full"></div>
+                <div id="boss-hp-text" class="absolute inset-0 flex items-center justify-center text-gray-900 font-black text-sm">
+                    Memuatkan HP...
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white/70 backdrop-blur-md p-6 rounded-3xl shadow-xl border border-white flex flex-col items-center text-center">
+            <div class="w-full bg-gray-200 h-3 rounded-full mb-3 overflow-hidden shadow-inner">
+                <div id="boss-timer-bar" class="bg-blue-500 h-full w-full"></div>
+            </div>
+            <div class="text-gray-600 font-bold mb-6 text-sm">
+                Masa: <span id="timer-text" class="text-red-600 text-xl font-black">15</span>s
+            </div>
+
+            <h2 id="boss-question-text" class="text-xl md:text-3xl font-black text-gray-800 mb-8 leading-tight">
+                Menjana serangan...
+            </h2>
+
+            <div id="boss-answer-zone" class="w-full max-w-lg">
+            </div>
+        </div>
+    </div>
+
+    <div class="w-full md:w-80 bg-white/80 backdrop-blur-md rounded-3xl p-5 border-2 border-orange-300 shadow-[0_0_15px_rgba(251,146,60,0.3)] flex flex-col">
+        <h3 class="text-lg font-black text-orange-600 mb-4 text-center border-b-2 border-orange-200 pb-2 flex items-center justify-center gap-2">
+            <i class="fas fa-fire animate-pulse"></i> LIVE TOP 10 
+        </h3>
+        
+        <div id="live-ranking-list" class="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 max-h-[500px]">
+            <div class="text-center text-sm text-gray-500 mt-10 animate-pulse">Memuatkan radar pertarungan...</div>
+        </div>
+    </div>
+
+</div>
+
+        <div id="admin-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-indigo-800">⚙️ Pendaftaran Sistem</h2>
+                <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div id="super-admin-section" class="bg-white/80 p-6 rounded-2xl border-2 border-purple-200 hidden">
+                    <h3 class="text-xl font-bold text-purple-700 mb-4">👑 Daftar Admin Sekolah</h3>
+                    <div class="space-y-3">
+                        <input type="text" id="reg-school-name" placeholder="Nama Sekolah (Cth: SK TAMAN TUN)" class="w-full px-4 py-2 border-2 border-purple-100 rounded-xl uppercase">
+                        <input type="text" id="reg-admin-name" placeholder="Nama Admin (Cth: CIKGU ALI)" class="w-full px-4 py-2 border-2 border-purple-100 rounded-xl uppercase">
+                        <input type="password" id="reg-admin-pin" placeholder="PIN Admin (Wajib)" class="w-full px-4 py-2 border-2 border-purple-100 rounded-xl">
+                        <button onclick="registerSchoolAdmin()" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700 shadow-md">Daftar Admin Sekolah</button>
+                    </div>
+                </div>
+                <div id="school-admin-section" class="bg-white/80 p-6 rounded-2xl border-2 border-indigo-200 hidden">
+                    <h3 class="text-xl font-bold text-indigo-700 mb-1">🎓 Daftar Murid Baru</h3>
+                    <p id="admin-current-school" class="text-sm text-gray-500 mb-4 font-bold"></p>
+                    <div class="space-y-3">
+                        <input type="text" id="reg-student-name" placeholder="Nama Murid (Ikut senarai nama)" class="w-full px-4 py-2 border-2 border-indigo-100 rounded-xl uppercase">
+                        <input type="text" id="reg-student-class" placeholder="Kelas (Cth: 6 ADIL)" class="w-full px-4 py-2 border-2 border-indigo-100 rounded-xl uppercase">
+                        <input type="password" id="reg-student-pin" placeholder="PIN Murid (Boleh dikosongkan)" class="w-full px-4 py-2 border-2 border-indigo-100 rounded-xl">
+                        <button onclick="registerStudent()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 shadow-md">Daftar Murid</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sa-schools-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-5xl mx-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-purple-800">🏫 Senarai Pangkalan Sekolah</h2>
+                <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div class="bg-white rounded-xl shadow-inner overflow-x-auto">
+                <table class="w-full text-left border-collapse admin-table">
+                    <thead><tr><th>Nama Sekolah</th><th>Nama Admin</th><th>Tarikh Daftar</th><th>Tindakan</th></tr></thead>
+                    <tbody id="sa-schools-list">
+                        <tr><td colspan="4" class="text-center italic">Memuat turun data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="sa-students-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-5xl mx-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-purple-800">🎓 Pengurusan Murid Global</h2>
+                <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            <div class="mb-4 flex gap-4">
+                <select id="sa-filter-school" class="px-4 py-2 border-2 border-purple-200 rounded-xl bg-white"><option value="ALL">Semua Sekolah</option></select>
+                <button onclick="loadGlobalStudents()" class="bg-purple-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-purple-700">Tapis</button>
+            </div>
+            <div class="bg-white rounded-xl shadow-inner overflow-x-auto max-h-[50vh]">
+                <table class="w-full text-left border-collapse admin-table">
+                    <thead><tr><th>Sekolah</th><th>Nama Murid</th><th>Kelas</th><th>Syiling</th><th>Tindakan</th></tr></thead>
+                    <tbody id="sa-students-list">
+                        <tr><td colspan="5" class="text-center italic">Memuat turun data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+<div id="sa-boss-setup-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-3xl font-bold text-red-700">🐉 Tetapan Cabaran Boss</h2>
+        <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+    </div>
+    <div class="bg-red-50 p-6 rounded-2xl border-2 border-red-200 space-y-4">
+        
+        <div class="mb-4">
+            <label class="block text-red-800 font-bold mb-2">Pilih Guardian/Boss:</label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="boss-selection-grid">
+                <div onclick="selectBossImage('cogwheel-sage.png', this)" class="boss-thumbnail cursor-pointer border-4 border-transparent rounded-xl overflow-hidden hover:scale-105 transition-transform bg-white shadow-sm relative">
+                    <img src="assets/boss/cogwheel-sage.png" class="w-full h-24 object-contain p-2">
+                    <div class="bg-gray-800 text-white text-center text-[10px] py-1 font-bold">Cogwheel Sage</div>
+                </div>
+                <div onclick="selectBossImage('cosmic-currator.png', this)" class="boss-thumbnail cursor-pointer border-4 border-transparent rounded-xl overflow-hidden hover:scale-105 transition-transform bg-white shadow-sm relative">
+                    <img src="assets/boss/cosmic-currator.png" class="w-full h-24 object-contain p-2">
+                    <div class="bg-gray-800 text-white text-center text-[10px] py-1 font-bold">Cosmic Curator</div>
+                </div>
+                <div onclick="selectBossImage('living-archive.png', this)" class="boss-thumbnail cursor-pointer border-4 border-transparent rounded-xl overflow-hidden hover:scale-105 transition-transform bg-white shadow-sm relative">
+                    <img src="assets/boss/living-archive.png" class="w-full h-24 object-contain p-2">
+                    <div class="bg-gray-800 text-white text-center text-[10px] py-1 font-bold">Living Archive</div>
+                </div>
+                <div onclick="selectBossImage('golden-astromancer.png', this)" class="boss-thumbnail cursor-pointer border-4 border-transparent rounded-xl overflow-hidden hover:scale-105 transition-transform bg-white shadow-sm relative">
+                    <img src="assets/boss/golden-astromancer.png" class="w-full h-24 object-contain p-2">
+                    <div class="bg-gray-800 text-white text-center text-[10px] py-1 font-bold">Golden Astromancer</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block font-bold text-red-800 mb-1">Nama Boss</label>
+                <input type="text" id="setup-boss-name" class="w-full p-2 rounded-xl border border-red-300" placeholder="Cth: NAGA BERAPI">
+            </div>
+            <div>
+                <label class="block font-bold text-red-800 mb-1">Jumlah HP (Nyawa)</label>
+                <input type="number" id="setup-boss-hp" class="w-full p-2 rounded-xl border border-red-300" placeholder="Cth: 10000">
+            </div>
+        </div>
+        <div>
+            <label class="block font-bold text-red-800 mb-1">Had Masa Menjawab (Saat)</label>
+            <input type="number" id="setup-boss-time" class="w-full p-2 rounded-xl border border-red-300" placeholder="Cth: 15">
+        </div>
+	<div>
+    <label class="block font-bold text-red-800 mb-1">Topik / Kategori Soalan</label>
+    <select id="setup-boss-category" class="w-full p-2 rounded-xl border border-red-300">
+        <option value="RANDOM">🎲 Campur Semua Topik (Rawak)</option>
+        </select>
+</div>
+        <div>
+            <label class="block font-bold text-red-800 mb-1">Status Event</label>
+            <select id="setup-boss-status" class="w-full p-2 rounded-xl border border-red-300">
+                <option value="INACTIVE">Tidak Aktif (Tutup)</option>
+                <option value="ACTIVE">Aktif (Sedang Berlangsung)</option>
+            </select>
+        </div>
+        
+        <button onclick="activateBossEvent()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl mt-4 shadow-lg transition-transform hover:scale-[1.02]">
+            <i class="fas fa-broadcast-tower mr-2"></i> Simpan & Siarkan Tetapan Boss
+        </button>
+    </div>
+</div>
+
+<div id="sa-analysis-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-blue-800">📊 Analisis Sistem Keseluruhan</h2>
+                <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-6 mb-8">
+                <div id="stat-card-schools" class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-purple-500 text-center">
+                    <h3 class="text-gray-500 font-bold mb-2">Jumlah Sekolah Berdaftar</h3>
+                    <p id="stat-total-schools" class="text-5xl font-black text-purple-700">0</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-2xl shadow-md border-l-8 border-indigo-500 text-center">
+                    <h3 class="text-gray-500 font-bold mb-2">Jumlah Murid Keseluruhan</h3>
+                    <p id="stat-total-students" class="text-5xl font-black text-indigo-700">0</p>
+                </div>
+            </div>
+            
+            <div id="stat-section-breakdown" class="bg-white p-6 rounded-2xl shadow-md mb-8">
+                <h3 class="font-bold text-gray-700 mb-4">Pecahan Murid Mengikut Sekolah</h3>
+                <ul id="stat-breakdown-list" class="space-y-2 text-gray-600">
+                    <li class="italic text-sm">Menjana laporan...</li>
+                </ul>
+            </div>
+            
+            <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
+                <h3 class="text-xl font-black text-indigo-800 mb-4">📈 Rekod Perkembangan Murid</h3>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-indigo-50 text-indigo-700 text-sm">
+                                <th class="p-3 rounded-tl-lg">Tarikh & Masa</th>
+                                <th class="p-3">Nama Murid</th>
+                                <th class="p-3">Kategori Game</th>
+                                <th class="p-3">Tahap</th>
+                                <th class="p-3 rounded-tr-lg">Markah</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysis-table-body" class="text-sm text-gray-700">
+                            <tr>
+                                <td colspan="5" class="p-4 text-center text-gray-400">Tekan butang muat turun data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <button onclick="loadGameRecords()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all">
+                    🔄 Muat Turun Data Terkini
+                </button>
+            </div>
+        </div>
+
+<div id="sch-manage-shop-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-indigo-800">🏪 Pengurusan Edu Shop</h2>
+                <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mb-6 border-b-2 border-indigo-100 pb-4">
+                <button onclick="loadAdminOrders()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition-all flex items-center gap-2 text-sm">
+                    <i class="fas fa-shopping-cart"></i> Senarai Pesanan Baru
+                </button>
+                <button onclick="loadAdminInventory()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-md transition-all flex items-center gap-2 text-sm">
+                    <i class="fas fa-boxes"></i> Urus Stok & Harga
+                </button>
+            </div>
+
+            <div id="admin-content" class="bg-white rounded-2xl p-4 min-h-[300px] shadow-inner border border-gray-200">
+                <div class="h-full flex flex-col items-center justify-center text-gray-400 py-10">
+                    <i class="fas fa-mouse-pointer text-4xl mb-3"></i>
+                    <p>Sila klik pada butang di atas untuk mula mengurus.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-item-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl transform transition-all">
+                <h3 class="font-black text-xl mb-4 text-gray-800 border-b pb-2">Tambah / Edit Barang</h3>
+                
+                <input type="hidden" id="admin-item-action" value="add">
+                
+                <div class="space-y-3">
+                    <div><label class="text-xs font-bold text-gray-500">ID Item (Cth: ITEM_001)</label>
+                    <input type="text" id="admin-item-id" class="w-full p-2 border-2 rounded-xl focus:border-indigo-500 outline-none"></div>
+                    
+                    <div><label class="text-xs font-bold text-gray-500">Nama Barang</label>
+                    <input type="text" id="admin-item-name" class="w-full p-2 border-2 rounded-xl focus:border-indigo-500 outline-none"></div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs font-bold text-gray-500">Harga (Koin)</label>
+                        <input type="number" id="admin-item-price" class="w-full p-2 border-2 rounded-xl outline-none"></div>
+                        <div><label class="text-xs font-bold text-gray-500">Stok Semasa</label>
+                        <input type="number" id="admin-item-stock" class="w-full p-2 border-2 rounded-xl outline-none"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs font-bold text-gray-500">Had Pembelian</label>
+                        <select id="admin-item-limit" class="w-full p-2 border-2 rounded-xl outline-none">
+                            <option value="none">Tiada Had</option>
+                            <option value="daily">1 Sehari</option>
+                            <option value="once">Sekali Sahaja</option>
+                        </select></div>
+                        <div><label class="text-xs font-bold text-gray-500">Icon (FontAwesome)</label>
+                        <input type="text" id="admin-item-icon" placeholder="fas fa-pen" class="w-full p-2 border-2 rounded-xl outline-none"></div>
+                    </div>
+
+                    <div><label class="text-xs font-bold text-gray-500">Kategori</label>
+                    <input type="text" id="admin-item-category" placeholder="alat-tulis / hadiah" class="w-full p-2 border-2 rounded-xl outline-none"></div>
+                    
+                    <div><label class="text-xs font-bold text-gray-500">Penerangan Pendek</label>
+                    <input type="text" id="admin-item-desc" class="w-full p-2 border-2 rounded-xl outline-none"></div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6">
+                    <button onclick="closeItemForm()" class="px-5 py-2.5 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300">Batal</button>
+                    <button id="admin-save-item-btn" onclick="submitItemForm()" class="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md">Simpan Data</button>
+                </div>
+            </div>
+        </div>
+
+    </div> 
+
+<script src="config.js"></script>
+    <script src="data.js"></script>
+
+    <script src="auth.js"></script>
+    <script src="achievements.js"></script>
+    <script src="shop.js"></script>
+    <script src="game.js"></script>
+    <script src="boss.js"></script>
+
+    <script src="ui.js"></script>
+
+<script>
+function showScreen(screenId) {
+            // Senarai semua ID div untuk dipadamkan paparannya
+            const screens = [
+                'auth-screen', 'menu-screen', 'game-arena', 'leaderboard-screen', 
+                'shop-screen', 'achievements-screen', 'boss-arena', 'admin-screen',
+                'sa-schools-screen', 'sa-students-screen', 'sa-boss-setup-screen', 
+                'sa-analysis-screen', 'sch-manage-shop-screen',
+                'challenge-lobby-screen', // <--- 1. TAMBAH INI SUPAYA LOBI PVP BOLEH TUTUP
+		'pvp-arena'
+            ];
+            
+            screens.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+            
+            // Paparkan hanya skrin yang diminta
+            const targetEl = document.getElementById(screenId);
+            if (targetEl) targetEl.classList.remove('hidden');
+
+            // ---> 2. PENYELESAIAN MASALAH "SOALAN KOSONG" <---
+            // Pastikan pop-up subjek ditutup secara paksa apabila masuk ke Arena
+            if (typeof closeSubjectModal === 'function') {
+                closeSubjectModal();
+            }
+
+            // ==========================================
+            // Panggilan fungsi auto load (TRIGGER DATA PANGKALAN)
+            // ==========================================
+            if (screenId === 'leaderboard-screen' && typeof loadLeaderboard === 'function') loadLeaderboard();
+            if (screenId === 'sa-schools-screen' && typeof loadAdminSchools === 'function') loadAdminSchools();
+            
+            if (screenId === 'sa-analysis-screen') {
+                if (typeof applyAnalysisFilters === 'function') applyAnalysisFilters(); 
+                if (typeof loadSystemAnalysis === 'function') loadSystemAnalysis();     
+                if (typeof loadGameRecords === 'function') loadGameRecords();           
+            }
+            
+            if (screenId === 'sa-students-screen' && typeof loadGlobalStudents === 'function') loadGlobalStudents();
+            if (screenId === 'sch-manage-shop-screen' && typeof loadAdminOrders === 'function') loadAdminOrders();
+        }
+    </script>
+
+<div id="subject-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 animate-fade-in">
+    <div class="bg-white rounded-3xl p-8 max-w-5xl w-full shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <button onclick="closeSubjectModal()" class="absolute top-4 right-5 text-gray-400 hover:text-red-500 text-3xl"><i class="fas fa-times"></i></button>
+        
+        <div id="subject-grid">
+            <h2 class="text-3xl font-black text-indigo-800 mb-6 text-center border-b-2 border-indigo-100 pb-4">Pilih Subjek 📚</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <button onclick="showEnglishCategories()" class="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl text-white font-bold hover:scale-105 transition-transform shadow-lg flex flex-col items-center gap-3 border-4 border-indigo-300">
+                    <span class="text-5xl">🇬🇧</span>
+                    <span class="text-lg">English</span>
+                    <span class="text-xs bg-white text-indigo-700 px-2 py-1 rounded-full animate-pulse">Available</span>
+                </button>
+
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🇲🇾</span>
+                    <span class="text-sm text-center">Bahasa Melayu</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🔢</span>
+                    <span class="text-sm text-center">Mathematics</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🔬</span>
+                    <span class="text-sm text-center">Science</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🕌</span>
+                    <span class="text-sm text-center">Pend. Agama Islam</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🇸🇦</span>
+                    <span class="text-sm text-center">Bahasa Arab</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🎵</span>
+                    <span class="text-sm text-center">Pend. Muzik</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🩺</span>
+                    <span class="text-sm text-center">Pend. Kesihatan</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🤝</span>
+                    <span class="text-sm text-center">Pend. Moral</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">⏳</span>
+                    <span class="text-sm text-center">Sejarah</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">🎨</span>
+                    <span class="text-sm text-center">Seni Visual</span>
+                </button>
+                <button onclick="lockedAlert('subject')" class="bg-gray-100 p-6 rounded-2xl text-gray-400 font-bold hover:bg-gray-200 transition-colors shadow-inner flex flex-col items-center gap-3 relative border-2 border-gray-200">
+                    <span class="absolute top-3 right-3 text-red-400 text-xl"><i class="fas fa-lock"></i></span>
+                    <span class="text-4xl opacity-50">⚙️</span>
+                    <span class="text-sm text-center">RBT</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="english-categories" class="hidden">
+            <div class="flex items-center justify-between mb-6 border-b-2 border-indigo-100 pb-4">
+                <button onclick="backToSubjects()" class="text-indigo-600 font-bold flex items-center gap-2 hover:bg-indigo-50 px-4 py-2 rounded-xl transition-colors">
+                    <i class="fas fa-arrow-left"></i> Kembali
+                </button>
+                <h2 class="text-3xl font-black text-indigo-800 text-center flex-1 mr-20">English Arena 🇬🇧</h2>
+            </div>
+            
+            <div class="space-y-8">
+                <section class="bg-green-50 p-6 rounded-2xl border-2 border-green-200">
+                    <h3 class="text-green-700 font-black uppercase text-lg mb-4">🟢 EASY STAGE (+1 XP)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="list-easy"></div>
+                </section>
+                <section class="bg-orange-50 p-6 rounded-2xl border-2 border-orange-200">
+                    <h3 class="text-orange-700 font-black uppercase text-lg mb-4">🟡 MEDIUM STAGE (+2 XP)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="list-medium"></div>
+                </section>
+                <section class="bg-red-50 p-6 rounded-2xl border-2 border-red-200">
+                    <h3 class="text-red-700 font-black uppercase text-lg mb-4">🔴 HARD STAGE (+3 XP)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="list-hard"></div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+        <script>
+            // --- Fungsi Kawalan Modal Subjek ---
+            function openSubjectModal() {
+                document.getElementById('subject-modal').classList.remove('hidden');
+            }
+
+            function closeSubjectModal() {
+                document.getElementById('subject-modal').classList.add('hidden');
+            }
+
+            function selectSubject(subjectName) {
+                if (subjectName === 'English') {
+                    closeSubjectModal();
+                    showScreen('game-arena'); // Buka skrin game English sedia ada
+                }
+            }
+
+            function lockedSubject(subjectName) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Masih Dikunci 🔒',
+                    html: `Subjek <b>${subjectName}</b> sedang dalam pembinaan.<br>Nantikan kemunculannya!`,
+                    confirmButtonColor: '#4f46e5',
+                    confirmButtonText: 'Baiklah!'
+                });
+            }
+        </script>
+
+<div id="profile-screen" class="hidden fixed inset-0 bg-indigo-900/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6">
+    
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative border-4 border-white">
+        
+        <div class="bg-indigo-600 p-8 text-center">
+            <div class="w-24 h-24 bg-white rounded-2xl mx-auto flex items-center justify-center text-5xl shadow-lg mb-4">
+                👤
+            </div>
+            <h2 id="profile-name" class="text-white text-2xl font-black">Student Name</h2>
+            <div id="profile-active-title" class="inline-block mt-2 px-4 py-1 bg-indigo-800/50 rounded-full text-indigo-100 text-xs font-bold tracking-widest uppercase">
+                Novice
+            </div>
+        </div>
+
+        <div class="p-6">
+            <label class="block text-gray-400 text-[10px] font-black uppercase mb-2 tracking-widest">Select Your Title</label>
+            <select id="title-selector" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-700 font-bold focus:border-indigo-500 focus:ring-0 transition-all appearance-none">
+                <option value="">-- Loading Titles... --</option>
+            </select>
+
+            <button onclick="saveEquippedTitle()" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+                EQUIP TITLE
+            </button>
+        </div>
+
+        <button onclick="closeProfile()" class="absolute top-4 right-4 w-10 h-10 bg-indigo-700/50 hover:bg-red-500 text-white rounded-xl flex items-center justify-center transition-all">
+            ✕
+        </button>
+    </div>
+    
+    <button onclick="closeProfile()" class="mt-8 text-indigo-200 font-bold hover:text-white transition-colors">
+        ← BACK TO DASHBOARD
+    </button>
+</div>
+
+<div id="student-detail-modal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-4xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+        <div class="p-6 bg-indigo-600 text-white flex justify-between items-center">
+            <div>
+                <h2 id="detail-student-name" class="text-2xl font-black">Nama Murid</h2>
+                <p class="text-indigo-100 text-sm">Laporan Analisis Perkembangan Pembelajaran</p>
+            </div>
+            <button onclick="closeStudentDetail()" class="text-white/80 hover:text-white transition-colors">
+                <i class="fas fa-times-circle text-3xl"></i>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b-2 border-gray-100 text-indigo-700 uppercase text-xs tracking-wider">
+                        <th class="p-3">Kategori</th>
+                        <th class="p-3">Kemajuan (Skor)</th>
+                        <th class="p-3 text-center">Purata (%)</th>
+                        <th class="p-3">Ulasan Guru (Auto)</th>
+                    </tr>
+                </thead>
+                <tbody id="detail-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</body>
+</html>

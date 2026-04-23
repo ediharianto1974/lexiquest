@@ -1,0 +1,37 @@
+Fasa 1: Persiapan Pangkalan Data (Google Sheets)
+Ini adalah fasa yang paling kritikal. Kita betulkan "tulang belakang" sistem dahulu.
+
+Buang Formula: Dalam helaian Players, padamkan formula =SUM() pada lajur Total Score. Gantikan semua markah sedia ada dengan nilai nombor biasa (statik).
+
+Tambah Lajur Sekolah: Tambah lajur baharu bernama "School" di helaian Players dan Scores.
+
+Bina Helaian Baharu (Admins): Buat satu tab baharu khas untuk menyimpan senarai guru. Lajur yang diperlukan: Name, School, PIN, dan Role (contoh: Admin atau Super Admin).
+
+Daftar Super Admin: Masukkan nama "GAME MASTER" secara manual ke dalam helaian Admins ini sebagai pengguna pertama.
+
+Fasa 2: Naiktaraf Enjin Pemprosesan (Google Apps Script)
+Kita akan ubah kod di belakang tabir supaya ia tahu cara memproses data baharu ini.
+
+Fungsi Simpan Markah Baharu: Ubah skrip supaya apabila murid tamat bermain, sistem akan mencari markah di helaian Players, menambahkannya dengan markah baharu, dan menulis ganti nombor tersebut.
+
+Fungsi Tarik Data Leaderboard (Berpenapis): Bina skrip baharu untuk Leaderboard. Jika "Admin Sekolah A" yang minta, skrip hanya kumpulkan senarai murid dari helaian Players yang mempunyai tag "Sekolah A", susun dari markah tertinggi, dan hantar ke sistem.
+
+Fungsi Super Admin: Tambah skrip untuk membenarkan GAME MASTER memasukkan data guru baharu terus ke helaian Admins.
+
+Fasa 3: Reka Bentuk Antaramuka (HTML / UI)
+Selepas "tulang belakang" dan "enjin" siap, kita ubah rupa luaran sistem.
+
+Skrin Log Masuk: Tambah satu lagi kotak input atau menu juntai bawah (dropdown) untuk "Sekolah" di bawah kotak Nama dan Kelas.
+
+Panel Admin (Guru): Reka satu butang khas dan paparan di mana guru boleh melihat Leaderboard sekolah mereka dan Borang Pesanan (hanya untuk murid sekolah mereka).
+
+Panel Super Admin (GAME MASTER): Reka borang ringkas tersembunyi (hanya muncul jika Game Master login) untuk mendaftarkan nama guru, sekolah, dan PIN.
+
+Fasa 4: Pengemaskinian Logik Sistem (JavaScript / Frontend)
+Ini adalah langkah terakhir di mana kita cantumkan antaramuka (HTML) dengan enjin (Google Apps Script).
+
+Kemaskini auth.js: Ubah kod startGameHub() supaya ia mengambil nilai dari kotak input "Sekolah" dan menghantarnya ke Google Sheets semasa proses pendaftaran/log masuk.
+
+Logik Cabang Pengguna: Letakkan syarat di mana jika murid yang log masuk, skrin permainan dibuka. Jika Admin/Game Master yang log masuk, skrin Dashboard khas dibuka.
+
+Kemaskini Leaderboard: Ubah kod pemaparan Leaderboard supaya ia menyusun data yang ditapis oleh pelayan, bukan lagi memproses semua data di peranti pengguna.
