@@ -366,19 +366,34 @@ window.addEventListener('DOMContentLoaded', (event) => {
 });
 
 // ==========================================
-// FUNGSI BANTUAN UNTUK MELUKIS AVATAR KE SKRIN
+// FUNGSI BANTUAN UNTUK MELUKIS AVATAR KE SKRIN (VERSI TERAPUNG)
 // ==========================================
 function renderAvatarToScreen(containerId, avatarFormat) {
     const container = document.getElementById(containerId);
     if (!container || !avatarFormat) return;
 
+    // Bersihkan kontena daripada border/background lama jika ada
+    container.style.background = "transparent";
+    container.style.border = "none";
+    container.style.boxShadow = "none";
+
     if (avatarFormat.startsWith('img|')) {
-        // Jika ia gambar PNG/JPG
+        // --- JIKA IA GAMBAR (PNG/JPG/GIF) ---
         const url = avatarFormat.replace('img|', '');
-        container.innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+        
+        // TUKAR: object-cover -> object-contain (Supaya tak terpotong)
+        // TAMBAH: drop-shadow (Supaya nampak terapung/3D)
+        container.innerHTML = `
+            <img src="${url}" 
+                 class="w-[90%] h-[90%] object-contain drop-shadow-xl hover:scale-110 transition-transform">
+        `;
     } else if (avatarFormat.startsWith('icon|')) {
-        // Jika ia ikon FontAwesome
+        // --- JIKA IA IKON FONTAWESOME ---
         const iconClass = avatarFormat.replace('icon|', '');
-        container.innerHTML = `<i class="${iconClass} text-2xl text-blue-600"></i>`;
+        
+        // Tambahkan drop-shadow juga pada ikon supaya nampak timbul
+        container.innerHTML = `
+            <i class="${iconClass} text-3xl text-gray-700 drop-shadow-md hover:scale-110 transition-transform"></i>
+        `;
     }
 }
