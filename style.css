@@ -54,9 +54,11 @@ body {
 }
 
 .avatar-3d-glow {
+    /* Kita buang background dan border */
+    background: transparent !important;
+    border: none !important;
+    /* Kita kekalkan animasi tapi fokus pada bayang imej sahaja */
     animation: avatar3DGlow 2.5s infinite ease-in-out;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border: 2px solid #fbbf24;
 }
 
 /* ==========================================
