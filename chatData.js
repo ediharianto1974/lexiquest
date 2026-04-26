@@ -1,5 +1,5 @@
 const quickChatData = {
-    "Greetings ☀️": [
+    "Greetings 👋": [
         "Good morning, everyone!",
         "Hello, friends!",
         "Hi! Nice to see you here.",
@@ -11,7 +11,7 @@ const quickChatData = {
         "Hi! Let's have some fun today.",
         "Hello! Who wants to challenge me?"
     ],
-    "Social 😊": [
+    "Social 💬": [
         "How are you feeling today?",
         "I am feeling great, thank you!",
         "I am ready to learn something new!",
@@ -23,7 +23,19 @@ const quickChatData = {
         "What is your favorite category?",
         "I like playing this game with you."
     ],
-    "Appraisal (Praise) 🏆": [
+    "Replies 🗣️": [
+        "I am feeling okay, thank you.",
+        "I feel very happy today!",
+        "My favorite is the Vocabulary category.",
+        "I like the Grammar questions the most!",
+        "Yes, I am ready to play now!",
+        "I'm not sure yet, let's see.",
+        "I agree with you!",
+        "That sounds like a great idea.",
+        "No problem, my friend!",
+        "You are welcome!"
+    ],
+    "Appraisal (Praise) 🌟": [
         "Great job! You did it!",
         "You are so fast! Well done.",
         "That was a very impressive score!",
@@ -47,7 +59,7 @@ const quickChatData = {
         "Every question makes you smarter!",
         "Keep up the good work, team!"
     ],
-    "Closing 👋": [
+    "Closing 🚪": [
         "Goodbye! See you again soon.",
         "Thanks for the fun game, everyone!",
         "I have to go now. Bye-bye!",
@@ -60,16 +72,3 @@ const quickChatData = {
         "Signing off! See you in the next quest!"
     ]
 };
-
-"Replies 💬": [
-        "I am feeling okay, thank you.",
-        "I feel very happy today!",
-        "My favorite is the Vocabulary category.",
-        "I like the Grammar questions the most!",
-        "Yes, I am ready to play now!",
-        "I'm not sure yet, let's see.",
-        "I agree with you!",
-        "That sounds like a great idea.",
-        "No problem, my friend!",
-        "You are welcome!"
-    ],

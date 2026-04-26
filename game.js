@@ -94,10 +94,10 @@ function renderCategoryButtons() {
 }
 
 function lockedAlert(diff) {
-    let msg = diff === 'medium' ? "Complete 3 categories in EASY Mode with full marks (50/50) to open this stage!" : "Complete 3 categories in MEDIUM Mode with full marks (50/50) to open this stage!";
+    let msg = diff === 'medium' ? "Selesaikan 3 kategori EASY dengan markah penuh (50/50) untuk buka tahap ini!" : "Selesaikan 3 kategori MEDIUM dengan markah penuh (50/50) untuk buka tahap ini!";
     Swal.fire({
         icon: 'warning',
-        title: 'Level Locked 🔒',
+        title: 'Tahap Terkunci 🔒',
         text: msg,
         confirmButtonColor: '#4f46e5'
     });
@@ -204,7 +204,7 @@ function initGame(type) {
         if (type === 'speaking' || type === 'pronunciation') {
             div.classList.add('text-center');
             div.innerHTML = `
-                <p class="font-bold text-gray-500 mb-2">Read the sentence below:</p>
+                <p class="font-bold text-gray-500 mb-2">Sebut ayat di bawah:</p>
                 <h1 class="text-2xl font-extrabold text-indigo-700 mb-4 target-word">${item.q}</h1>
                 <button type="button" onclick="startMic(this)" class="bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-full font-bold shadow-md">
                     🎤 Tekan & Cakap
@@ -240,6 +240,9 @@ function initGame(type) {
 // ==========================================
 // 2. KAWALAN MASA & MARKAH
 // ==========================================
+
+let currentTimer; // <-- TAMBAH INI
+let timeLeft;     // <-- TAMBAH INI
 
 function startTimer(seconds) {
     console.log("🕒 Sistem cuba mulakan jam: " + seconds + " saat"); // Pengesan 1
@@ -284,8 +287,8 @@ function timeUp() {
     Swal.fire({
         icon: 'warning',
         title: "TIME'S UP! ⏳",
-        text: "Time's up. Let's check your score!",
-        confirmButtonText: "Check Score",
+        text: "Masa telah tamat. Jom semak markah anda!",
+        confirmButtonText: "Semak Markah",
         confirmButtonColor: "#ef4444",
         allowOutsideClick: false
     }).then(() => {
@@ -307,7 +310,7 @@ function updateCategoryProgress() {
 }
 
 // ==========================================
-// 3. LEADERBOARD
+// 3. LEADERBOARD (VERSI FIREBASE)
 // ==========================================
 async function showLeaderboard() {
     document.getElementById('menu-screen').classList.add('hidden');
@@ -315,132 +318,86 @@ async function showLeaderboard() {
     document.getElementById('leaderboard-screen').classList.remove('hidden');
     
     const body = document.getElementById('leaderboard-body');
-    body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-indigo-500 font-bold animate-pulse'><i class='fas fa-spinner fa-spin mr-2'></i> Fetching live scores...</td></tr>";
+    body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-indigo-500 font-bold animate-pulse'><i class='fas fa-spinner fa-spin mr-2'></i> Memuat turun Papan Pendahulu Live...</td></tr>";
 
     try {
-        const response = await fetch(SCRIPT_URL);
-        const scores = await response.json();
+        // Tarik data pemain dari Firestore ('players' collection) dan susun mengikut totalScore tertinggi
+        const snapshot = await db.collection("players")
+                                 .orderBy("totalScore", "desc")
+                                 .limit(50) // Ambil Top 50 sahaja
+                                 .get();
         
-        if(scores.length === 0) {
-            body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-gray-400'>No records yet. Be the first to play!</td></tr>";
+        if(snapshot.empty) {
+            body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-gray-400'>Belum ada rekod. Jadilah yang pertama bermain!</td></tr>";
             return;
         }
 
-        const studentData = {};
-        
-        scores.forEach(s => {
-            if (!s || !s.name) return; 
-
-            const safeName = String(s.name).toUpperCase();
-            const safeCls = s.cls ? String(s.cls).toUpperCase() : "TIADA KELAS";
-            const key = safeName + "_" + safeCls;
-            
-            if (!studentData[key]) {
-                studentData[key] = {
-                    name: safeName,
-                    cls: s.cls || "-",
-                    activeAvatar: s.activeAvatar, 
-                    claimedLevel: s.claimedLevel, // <--- DIKEMASKINI: Simpan data lajur K
-                    activeTitle: s.activeTitle || "Novice", 
-                    games: {}
-                };
-            }
-            
-            if (s.type && s.score !== undefined) {
-                let numericScore = Number(s.score) || 0;
-                let numericTotal = Number(s.total) || 0;
-                let currentBestScore = studentData[key].games[s.type] ? studentData[key].games[s.type].score : -1;
-                if (numericScore > currentBestScore) {
-                    studentData[key].games[s.type] = { score: numericScore, total: numericTotal };
-                }
-            } else {
-                studentData[key].directTotal = Number(s.total) || 0;
-            }
-        });
-
-        const leaderboard = Object.values(studentData).map(student => {
-            let grandScore = 0;
-            let grandMax = 0;
-            const gameList = [];
-            for (const [gameName, gameData] of Object.entries(student.games)) {
-                grandScore += Number(gameData.score);
-                grandMax += Number(gameData.total);
-                gameList.push({ name: gameName, score: Number(gameData.score), total: Number(gameData.total) });
-            }
-            if (student.directTotal !== undefined && student.directTotal > 0) {
-                grandScore = Number(student.directTotal);
-                grandMax = Number(student.directTotal);
-            }
-            return { ...student, gameList, grandScore, grandMax };
-        });
-
-        leaderboard.sort((a, b) => b.grandScore - a.grandScore);
-
-        body.innerHTML = "";
         let allRowsHTML = "";
+        let index = 0;
         const currentPlayerName = (typeof localPlayerData !== 'undefined' && localPlayerData && localPlayerData.name) 
                                   ? String(localPlayerData.name).toUpperCase() 
                                   : "";
 
-        leaderboard.slice(0, 50).forEach((student, index) => {
-            let currentRank = index + 1;
-            let rankIcon = `#${index+1}`;
-            if(index === 0) rankIcon = `🥇`;
-            if(index === 1) rankIcon = `🥈`;
-            if(index === 2) rankIcon = `🥉`;
+        snapshot.forEach(doc => {
+            const student = doc.data();
+            index++;
             
-            if (currentPlayerName !== "" && student.name === currentPlayerName) {
+            // Format Asas
+            const safeName = student.name ? String(student.name).toUpperCase() : "GUEST";
+            const safeCls = student.class || "-";
+            const grandScore = student.totalScore || 0;
+            const studentLevel = student.level || 1;
+            
+            // 1. KEDUDUKAN (RANK)
+            let currentRank = index;
+            let rankIcon = `#${index}`;
+            if(index === 1) rankIcon = `🥇`;
+            if(index === 2) rankIcon = `🥈`;
+            if(index === 3) rankIcon = `🥉`;
+            
+            if (currentPlayerName !== "" && safeName === currentPlayerName) {
                 if (typeof checkLeaderboardAchievements === 'function') {
                     checkLeaderboardAchievements(currentRank);
                 }
             }
 
-            // 1. LUKIS AVATAR (DIKEMASKINI DENGAN JSON.PARSE)
-            let avatarHtml = '';
-            if (student.activeAvatar) {
-                // <--- DIKEMASKINI: Tukar teks JSON kepada Object
-                let active = typeof student.activeAvatar === 'string' ? JSON.parse(student.activeAvatar) : student.activeAvatar;
-                
-                let avatarKey = active.key || active.id || active.avatarKey;
-                let visualContent = '';
-                let isLegendaryImage = false;
-                const rawData = (typeof avatars !== 'undefined') ? avatars : (typeof avatarsData !== 'undefined' ? avatarsData : null);
+// 2. AVATAR (SELARAS DENGAN DASHBOARD)
+            let avatarHtml = "";
+            let avatarData = student.activeAvatar;
 
-                if (rawData && rawData[avatarKey] && rawData[avatarKey].levels) {
-                    let safeLevel = active.level || 1; 
-                    const levelInfo = rawData[avatarKey].levels.slice().reverse().find(l => safeLevel >= l.level);
-
-                    if (levelInfo && levelInfo.img) {
-                        visualContent = `<img src="${levelInfo.img}" class="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-[0_0_8px_rgba(255,140,0,0.8)] legendary-avatar mx-auto">`;
-                        isLegendaryImage = true;
-                    } else {
-                        let iconToUse = (levelInfo && levelInfo.icon) ? levelInfo.icon : active.icon;
-                        visualContent = `<i class="${iconToUse} text-xl md:text-2xl text-yellow-600"></i>`;
-                    }
-                } else {
-                    visualContent = active.img 
-                        ? `<img src="${active.img}" class="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-md legendary-avatar mx-auto">` 
-                        : `<i class="${active.icon} text-xl md:text-2xl text-yellow-600"></i>`;
-                    if (active.img) isLegendaryImage = true;
+            // Logik penentuan rupa avatar
+            let visualContent = "";
+            
+            if (avatarData) {
+                // Jika formatnya objek (seperti dalam Dashboard cikgu)
+                if (typeof avatarData === 'object' && avatarData.img) {
+                    visualContent = `<img src="${avatarData.img}" class="w-full h-full object-contain">`;
+                } 
+                // Jika formatnya string URL (dengan atau tanpa prefix img|)
+                else if (typeof avatarData === 'string') {
+                    let url = avatarData.replace('img|', '');
+                    visualContent = `<img src="${url}" class="w-full h-full object-contain" onerror="this.parentElement.innerHTML='👤'">`;
                 }
-                
-                let containerClass = isLegendaryImage 
-                    ? "w-12 h-12 md:w-14 md:h-14 flex items-center justify-center mb-1 relative" 
-                    : "avatar-3d-glow bg-indigo-50 border-2 border-indigo-200 rounded-full w-12 h-12 md:w-14 md:h-14 flex items-center justify-center mb-1 relative"; 
-
-                avatarHtml = `
-                    <div class="flex flex-col items-center justify-center p-2">
-                        <div class="${containerClass}">
-                            ${visualContent}
-                            <div class="absolute -bottom-1 -right-1 z-10 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-white shadow-sm">Lvl ${active.level || 1}</div>
-                        </div>
-                        <div class="text-[9px] font-bold text-yellow-700 text-center uppercase bg-yellow-100 px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap w-max mx-auto mt-1">${active.name}</div>
-                    </div>`;
+                // Jika formatnya ikon emoji/teks
+                else if (avatarData.icon || typeof avatarData === 'string') {
+                    visualContent = `<span class="text-xl">${avatarData.icon || avatarData}</span>`;
+                }
             } else {
-                avatarHtml = `<div class="text-[10px] text-gray-400 italic text-center py-4">No Guardian</div>`;
+                visualContent = `<span class="text-xl text-gray-400">👤</span>`;
             }
 
-            // 2. GELARAN KARAKTER
+            avatarHtml = `
+                <div class="flex flex-col items-center justify-center p-2">
+                    <div class="relative flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-gradient-to-b from-indigo-50 to-white rounded-xl border-2 border-indigo-100 shadow-sm overflow-visible">
+                        ${visualContent}
+                        
+                        <div class="absolute -bottom-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md border border-white shadow-sm z-10">
+                            LVL ${studentLevel}
+                        </div>
+                    </div>
+                </div>`;
+
+            // 3. GELARAN KARAKTER (TITLE)
             const titleName = String(student.activeTitle || "Novice");
             const rawAchievements = (typeof achievementsData !== 'undefined') ? achievementsData : [];
             const titleData = rawAchievements.find(ach => ach.name === titleName);
@@ -458,19 +415,7 @@ async function showLeaderboard() {
             else if (tier === 'rare') titleHTML = `<div class="title-rare text-[10px] md:text-xs inline-block mt-1">⭐ ${upperTitle}</div>`;
             else titleHTML = `<div class="title-common text-[10px] md:text-xs inline-block mt-1">${upperTitle}</div>`;
 
-            // 3. PENGIRAAN LEVEL (DIKEMASKINI: Baca Lajur K jika ada)
-            let studentLevel = Math.floor(student.grandScore / 100) + 1;
-            
-            // <--- DIKEMASKINI: Jika lajur K ada data, ambil nilai maks
-            if (student.claimedLevel) {
-                try {
-                    let lvlData = typeof student.claimedLevel === 'string' ? JSON.parse(student.claimedLevel) : student.claimedLevel;
-                    if (Array.isArray(lvlData) && lvlData.length > 0) {
-                        studentLevel = Math.max(...lvlData);
-                    }
-                } catch(e) {}
-            }
-
+            // 4. TAJUK LEVEL
             let studentLevelTitle = "Novice";
             if (studentLevel >= 151) studentLevelTitle = "Transcendent";
             else if (studentLevel >= 101) studentLevelTitle = "Omniscient";
@@ -478,25 +423,30 @@ async function showLeaderboard() {
 
             let newLevelBadgeHTML = `<div class="mt-1 flex items-center gap-1 text-[11px] md:text-sm font-semibold text-pink-600"><i class="fas fa-certificate"></i> Lv.${studentLevel} ${studentLevelTitle}</div>`;
 
-            // 4. LENCANA PERMAINAN
-            let gamesBadgesHtml = student.gameList.map(game => {
-                return `<span class="inline-block bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] md:text-xs px-2 py-1 rounded-md m-0.5 font-semibold">${game.name}: <span class="text-green-600">${game.score}/${game.total}</span></span>`;
-            }).join('');
+            // 5. LENCANA PERMAINAN (Games Played)
+            let gamesBadgesHtml = "";
+            if (student.games) {
+                gamesBadgesHtml = Object.entries(student.games).map(([gameName, score]) => {
+                    return `<span class="inline-block bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] md:text-xs px-2 py-1 rounded-md m-0.5 font-semibold capitalize">${gameName}: <span class="text-green-600">${score}</span></span>`;
+                }).join('');
+            } else {
+                gamesBadgesHtml = `<span class="text-xs text-gray-400 italic">Belum memulakan permainan</span>`;
+            }
 
-            // 5. MARKAH KESELURUHAN
-            const totalHtmlRes = `<span class="bg-indigo-600 text-white px-2 py-1 md:px-3 md:py-1 rounded-full font-bold shadow-md text-xs md:text-base whitespace-nowrap">${student.grandScore} XP</span>`;
+            // 6. MARKAH KESELURUHAN (XP)
+            const totalHtmlRes = `<span class="bg-indigo-600 text-white px-2 py-1 md:px-3 md:py-1 rounded-full font-bold shadow-md text-xs md:text-base whitespace-nowrap">${grandScore} XP</span>`;
 
-            // 6. BINA BARIS JADUAL
+            // 7. BINA BARIS JADUAL
             const row = `
                 <tr class="border-b-2 border-indigo-100 hover:bg-gray-50 transition">
                     <td class="p-2 md:p-4 font-bold text-indigo-600 text-sm md:text-xl text-center align-middle">${rankIcon}</td>
                     <td class="p-1 md:p-2 w-12 md:w-24 align-middle">${avatarHtml}</td>
                     <td class="p-2 md:p-4 align-middle">
-                        <div class="font-black uppercase text-gray-800 text-xs md:text-lg">${student.name}</div>
+                        <div class="font-black uppercase text-gray-800 text-xs md:text-lg">${safeName}</div>
                         ${titleHTML}
                         <br> ${newLevelBadgeHTML}
                     </td>
-                    <td class="p-2 md:p-4 text-[10px] md:text-sm text-gray-500 text-center align-middle">${student.cls || "-"}</td>
+                    <td class="p-2 md:p-4 text-[10px] md:text-sm text-gray-500 text-center align-middle">${safeCls}</td>
                     <td class="p-2 md:p-4 align-middle">
                         <div class="flex flex-wrap gap-1 justify-start">
                             ${gamesBadgesHtml}
@@ -858,6 +808,21 @@ function endGame() {
         localPlayerData.coins = (parseInt(localPlayerData.coins) || 0) + coinsEarned;
         
         // ==========================================
+        // 🎥 CCTV TRACKER: REKOD TAMAT GAME & KOIN
+        // ==========================================
+        if (window.Trackers) {
+            // Semak adakah markah penuh?
+            let isPerfect = (score === totalQuestions && totalQuestions > 0); 
+            // Kenal pasti game apa yang dimainkan
+            let catNameForTracker = (typeof currentGameType !== 'undefined' && currentGameType !== "") ? currentGameType : "unknown_game";
+            
+            // Lapor kepada Trackers
+            Trackers.rekodTamatGame(catNameForTracker, score, isPerfect);
+            Trackers.rekodKoinDapat(coinsEarned); // Rekod sejarah jumlah koin keseluruhan
+        }
+        // ==========================================
+
+        // ==========================================
         // 🏆 TAMBAHAN BAHARU: SIMPAN MARKAH TERTINGGI KATEGORI
         // ==========================================
         if (!localPlayerData.games) {
@@ -913,42 +878,11 @@ function endGame() {
         if (typeof saveGameRecord === 'function') {
             saveGameRecord(gameCategoryName, currentDifficulty, score, totalQuestions);
 
-	// 🔥 TAMBAH INI: Selepas simpan, terus semak untuk buka level!
+            // 🔥 TAMBAH INI: Selepas simpan, terus semak untuk buka level!
             checkAndUnlockLevels();
         }
     } catch (error) {
         console.error("Ralat memanggil saveGameRecord:", error);
-    }
-    // ==========================================
-
-// ==========================================
-    // 🚚 POSMEN MENGHANTAR MARKAH KE GOOGLE SHEETS (VERSI FIX)
-    // ==========================================
-    try {
-        let currentPlayerName = localPlayerData.name || localStorage.getItem("playerName") || "Guest";
-        let currentPlayerClass = localPlayerData.class || localStorage.getItem("playerClass") || "-";
-
-        const scorePayload = {
-            action: "submitScore",
-            name: currentPlayerName, 
-            cls: currentPlayerClass, 
-            type: typeof currentGameType !== 'undefined' ? currentGameType : "Latihan",             
-            score: score, // Markah yang murid dapat
-            total: (typeof totalQuestions !== 'undefined') ? totalQuestions : (typeof total !== 'undefined' ? total : 0) 
-            // ^ Baris di atas akan cuba guna 'totalQuestions', kalau tak jumpa dia guna 'total'
-        };
-
-        const targetURL = (typeof SCRIPT_URL !== "undefined") ? SCRIPT_URL : "https://script.google.com/macros/s/AKfycbwG1uiPv8Z0LCpHxmmcs5H3ZT_aPh0uOTfTCqmb5lyGF4C224BXObkeGJgq8pnj8W6C/exec";
-
-        fetch(targetURL, {
-            method: "POST",
-            body: JSON.stringify(scorePayload)
-        })
-        .then(res => res.json())
-        .then(data => console.log("✅ Markah berjaya dihantar ke Google Sheets:", data))
-        .catch(err => console.error("❌ Ralat hantar markah:", err));
-    } catch (error) {
-        console.error("Gagal menjana payload markah:", error);
     }
     // ==========================================
 
@@ -1034,55 +968,63 @@ function updateUI() {
     }
 
 // ==========================================
-    // ⭐ 6. KEMASKINI AVATAR (VERSI BACA DATA DATABASE)
-    // ==========================================
-    const avatarContainer = document.getElementById('dashboard-avatar-container');
-    const currentLiveName = (localPlayerData && localPlayerData.name) ? localPlayerData.name : "";
+// ⭐ 6. KEMASKINI AVATAR (VERSI TANPA KOTAK & TERAPUNG)
+// ==========================================
+const avatarContainer = document.getElementById('dashboard-avatar-container');
+const currentLiveName = (localPlayerData && localPlayerData.name) ? localPlayerData.name : "";
+
+if (avatarContainer) {
+    // 1. Kosongkan container dahulu
+    avatarContainer.innerHTML = ""; 
+
+    // 2. Setkan gaya container utama (Sangat penting: buang border/bg di sini)
+    // Kita guna 'overflow-visible' supaya glow atau bayang tidak terpotong
+    avatarContainer.className = "w-16 h-16 flex items-center justify-center relative overflow-visible cursor-pointer hover:scale-110 transition-transform";
     
-    if (avatarContainer) {
-        // Kosongkan container dahulu
-        avatarContainer.innerHTML = ""; 
+    // Reset sebarang style manual yang mungkin tertinggal
+    avatarContainer.style.border = "none";
+    avatarContainer.style.boxShadow = "none";
+    avatarContainer.style.background = "transparent";
 
-        // AMBIL DATA AVATAR DARI MEMORI (Guna activeAvatar berdasarkan Firestore cikgu)
-        const savedAvatar = (localPlayerData && localPlayerData.activeAvatar) ? localPlayerData.activeAvatar : "fas fa-user";
+    // 3. AMBIL DATA AVATAR DARI MEMORI
+    const savedAvatar = (localPlayerData && localPlayerData.activeAvatar) ? localPlayerData.activeAvatar : "fas fa-user";
 
-        if (currentLiveName.trim().toUpperCase() === "GAME MASTER") {
-            // --- LOGIK KHAS GAME MASTER ---
+    if (currentLiveName.trim().toUpperCase() === "GAME MASTER") {
+        // --- LOGIK KHAS GAME MASTER ---
+        let avatarUrl = savedAvatar.startsWith("img|") 
+            ? savedAvatar.replace("img|", "") 
+            : "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png";
+
+        const img = document.createElement('img');
+        img.src = avatarUrl;
+        
+        // object-contain + drop-shadow (Efek terapung tanpa kotak)
+        img.className = "w-14 h-14 object-contain drop-shadow-[0_0_15px_rgba(255,215,0,0.9)]";
+        img.style.display = "block";
+        
+        avatarContainer.appendChild(img);
+
+        // Tambah semula border emas HANYA jika cikgu mahu bulatan emas tersebut
+        // Jika tak mahu langsung bulatan emas, boleh padam 3 baris di bawah:
+        avatarContainer.style.border = "3px solid gold";
+        avatarContainer.style.boxShadow = "0 0 20px gold";
+        avatarContainer.style.borderRadius = "50%";
+
+    } else {
+        // --- LOGIK MURID BIASA ---
+        if (savedAvatar.startsWith("img|")) {
             const img = document.createElement('img');
+            img.src = savedAvatar.replace("img|", "");
             
-            // Semak adakah data bermula dengan "img|"
-            if (savedAvatar.startsWith("img|")) {
-                img.src = savedAvatar.replace("img|", ""); // Buang perkataan "img|" untuk dapat link sebenar
-            } else {
-                // Fallback jika tiada gambar diset
-                img.src = "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"; 
-            }
-            
-            img.className = "w-full h-full object-contain rounded-full"; 
-            img.style.display = "block";
+            // Guna object-contain dan buang rounded-full supaya ninja tak terpotong
+            img.className = "w-full h-full object-contain drop-shadow-lg"; 
             avatarContainer.appendChild(img);
-            
-            // Efek Glow Emas
-            avatarContainer.style.border = "3px solid gold";
-            avatarContainer.style.boxShadow = "0 0 20px gold";
-            
         } else {
-            // --- LOGIK MURID BIASA ---
-            if (savedAvatar.startsWith("img|")) {
-                // JIKA IA ADALAH GAMBAR (contoh: img|assets/avatars/avatar.gif)
-                const img = document.createElement('img');
-                img.src = savedAvatar.replace("img|", "");
-                img.className = "w-full h-full object-cover rounded-full";
-                avatarContainer.appendChild(img);
-            } else {
-                // JIKA IA ADALAH IKON BUKAN GAMBAR (contoh: fas fa-user)
-                avatarContainer.innerHTML = `<i class="${savedAvatar} text-indigo-500 text-3xl"></i>`;
-            }
-            
-            avatarContainer.style.border = "2px solid #6366f1";
-            avatarContainer.style.boxShadow = "none";
+            // Jika ia ikon FontAwesome (Buang warna text-indigo-500 jika mahu warna neutral)
+            avatarContainer.innerHTML = `<i class="${savedAvatar} text-3xl drop-shadow-md"></i>`;
         }
     }
+}
 
     // 🛍️ KEMASKINI KEDAI AVATAR
     if (typeof loadAvatarShop === 'function') {
@@ -1387,7 +1329,8 @@ snapshot.forEach(doc => {
 }
 
 // 3. Fungsi Sementara untuk Butang Cabar
-function sendChallengeInvite(opponentName) {
+// (Nota: Boleh dibuang jika fungsi async di bawah sudah digunakan, tapi saya kekalkan agar kod tak berubah)
+function sendChallengeInvite_old(opponentName) {
     alert(`Sistem sedang menjana bilik perlawanan untuk anda dan ${opponentName}. (Logik Firebase akan dimasukkan di sini seterusnya!)`);
 }
 
@@ -1436,6 +1379,13 @@ async function sendChallengeInvite(opponentName) {
             status: "pending",
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
+
+        // ==========================================
+        // 🎥 CCTV TRACKER: REKOD HANTAR CABARAN
+        // ==========================================
+        if (window.Trackers) {
+            Trackers.rekodHantarCabaran();
+        }
 
         Swal.fire({ title: 'Berjaya!', text: `Menunggu ${opponentName}...`, icon: 'success', showConfirmButton: false });
 
@@ -1583,7 +1533,7 @@ function startPvPMatch(challengeId, challengeData) {
             answerInput.value = "";
             answerInput.focus();
         }
-	setupPvPLogic(challengeId, challengeData);
+    setupPvPLogic(challengeId, challengeData);
 
         console.log("🚀 Skrin Arena dipaparkan. Menunggu soalan dari Game Master...");
         // Fasa seterusnya: Kita akan panggil fungsi jana soalan di sini!
@@ -1733,6 +1683,24 @@ function endPvPMatch() {
     // 3. Masukkan ganjaran ke data tempatan pemain
     localPlayerData.coins = (localPlayerData.coins || 0) + coinReward;
     localPlayerData.totalScore = (localPlayerData.totalScore || 0) + xpReward;
+
+    // ==========================================
+    // 🎥 CCTV TRACKER: REKOD KEPUTUSAN CABARAN
+    // ==========================================
+    if (window.Trackers) {
+        let trackerStatus = 'tie';
+        if (result === "menang") trackerStatus = 'win';
+        if (result === "kalah") trackerStatus = 'lose';
+        
+        let isNarrowWin = false;
+        // Jika menang dan beza markah cuma 1, ia adalah Menang Tipis (Narrow Win)!
+        if (result === "menang" && (myScore - oppScore === 1)) {
+            isNarrowWin = true;
+        }
+
+        Trackers.rekodKeputusanCabaran(trackerStatus, isNarrowWin, false, false);
+        Trackers.rekodKoinDapat(coinReward); // Rekod jumlah keseluruhan syiling
+    }
 
     // 🔴 4. SIMPAN TERUS KE FIREBASE SEBELUM POP-UP (VERSI PALING SELAMAT)
     const today = new Date().toISOString().split('T')[0];

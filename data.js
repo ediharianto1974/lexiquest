@@ -1269,39 +1269,8 @@ const shopBadges = [
     { id: "gb_14", name: "Architect Badge", icon: "fas fa-ruler-combined", price: 5000, type: "game", tier: "common", condition: "none" },
     { id: "gb_15", name: "Listening Badge", icon: "fas fa-headphones", price: 5000, type: "game", tier: "common", condition: "none" },
     { id: "gb_16", name: "Speaking Badge", icon: "fas fa-microphone", price: 5000, type: "game", tier: "common", condition: "none" },
-
-    // ---------------------------------------------------------
-    // 2. ACHIEVEMENT BADGES (Terkunci sehingga syarat dipenuhi)
-    // ---------------------------------------------------------
-    
-    // --- TIER COMMON (Harga: 10,000 coins) ---
-    { id: "ab_c1", name: "First Try Badge", desc: "Main mana-mana 1 permainan.", icon: "fas fa-seedling", price: 10000, type: "achievement", tier: "common", reqType: "total_games", reqValue: 1 },
-    { id: "ab_c2", name: "High Five Badge", desc: "Main 5 permainan keseluruhan.", icon: "fas fa-hand-paper", price: 10000, type: "achievement", tier: "common", reqType: "total_games", reqValue: 5 },
-    { id: "ab_c3", name: "Quick Learner Badge", desc: "Dapat 1 markah penuh (Perfect Score).", icon: "fas fa-star", price: 10000, type: "achievement", tier: "common", reqType: "perfect_scores", reqValue: 1 },
-    { id: "ab_c4", name: "Level 5 Guardian Badge", desc: "Capai Level 5.", icon: "fas fa-arrow-up", price: 10000, type: "achievement", tier: "common", reqType: "level", reqValue: 5 },
-    { id: "ab_c5", name: "Pocket Money Badge", desc: "Kumpul jumlah 5,000 coins.", icon: "fas fa-coins", price: 10000, type: "achievement", tier: "common", reqType: "total_coins", reqValue: 5000 },
-
-    // --- TIER RARE (Harga: 20,000 coins) ---
-    { id: "ab_r1", name: "Regular Player Badge", desc: "Main 20 permainan keseluruhan.", icon: "fas fa-gamepad", price: 20000, type: "achievement", tier: "rare", reqType: "total_games", reqValue: 20 },
-    { id: "ab_r2", name: "Explorer Badge", desc: "Main 6 jenis permainan berbeza.", icon: "fas fa-map", price: 20000, type: "achievement", tier: "rare", reqType: "unique_games", reqValue: 6 },
-    { id: "ab_r3", name: "Hat-trick Badge", desc: "Dapat 3 markah penuh (Perfect Score).", icon: "fas fa-hat-wizard", price: 20000, type: "achievement", tier: "rare", reqType: "perfect_scores", reqValue: 3 },
-    { id: "ab_r4", name: "Level 15 Guardian Badge", desc: "Capai Level 15.", icon: "fas fa-shield-alt", price: 20000, type: "achievement", tier: "rare", reqType: "level", reqValue: 15 },
-    { id: "ab_r5", name: "Coin Collector Badge", desc: "Kumpul jumlah 20,000 coins.", icon: "fas fa-piggy-bank", price: 20000, type: "achievement", tier: "rare", reqType: "total_coins", reqValue: 20000 },
-
-    // --- TIER EPIC (Harga: 30,000 coins) ---
-    { id: "ab_e1", name: "Veteran Badge", desc: "Main 50 permainan keseluruhan.", icon: "fas fa-medal", price: 30000, type: "achievement", tier: "epic", reqType: "total_games", reqValue: 50 },
-    { id: "ab_e2", name: "Adventurer Badge", desc: "Main 10 jenis permainan berbeza.", icon: "fas fa-compass", price: 30000, type: "achievement", tier: "epic", reqType: "unique_games", reqValue: 10 },
-    { id: "ab_e3", name: "Flawless Badge", desc: "Dapat 8 markah penuh (Perfect Score).", icon: "fas fa-gem", price: 30000, type: "achievement", tier: "epic", reqType: "perfect_scores", reqValue: 8 },
-    { id: "ab_e4", name: "Level 30 Guardian Badge", desc: "Capai Level 30.", icon: "fas fa-chess-knight", price: 30000, type: "achievement", tier: "epic", reqType: "level", reqValue: 30 },
-    { id: "ab_e5", name: "Wealthy Student Badge", desc: "Kumpul jumlah 50,000 coins.", icon: "fas fa-money-bill-wave", price: 30000, type: "achievement", tier: "epic", reqType: "total_coins", reqValue: 50000 },
-
-    // --- TIER LEGENDARY (Harga: 50,000 coins) ---
-    { id: "ab_l1", name: "The Addict Badge", desc: "Main 100 permainan keseluruhan.", icon: "fas fa-fire", price: 50000, type: "achievement", tier: "legendary", reqType: "total_games", reqValue: 100 },
-    { id: "ab_l2", name: "Perfectionist Badge", desc: "Dapat markah penuh untuk SEMUA 12 permainan.", icon: "fas fa-crown", price: 50000, type: "achievement", tier: "legendary", reqType: "perfect_scores", reqValue: 12 },
-    { id: "ab_l3", name: "Level 50 Master Badge", desc: "Capai Level 50.", icon: "fas fa-dragon", price: 50000, type: "achievement", tier: "legendary", reqType: "level", reqValue: 50 },
-    { id: "ab_l4", name: "Millionaire Badge", desc: "Kumpul jumlah 100,000 coins.", icon: "fas fa-sack-dollar", price: 50000, type: "achievement", tier: "legendary", reqType: "total_coins", reqValue: 100000 },
-    { id: "ab_l5", name: "The Legend Badge", desc: "Capai Level 100 (Max Level).", icon: "fas fa-infinity", price: 50000, type: "achievement", tier: "legendary", reqType: "level", reqValue: 100 }
 ];
+
 
 // ------------------------------------------
     // KATEGORI: EDU SHOP (BARANGAN SEKOLAH / ALAT TULIS)
@@ -1328,68 +1297,74 @@ const shopItems = [
 ];
 
 // ==========================================
-// 3. DATA PENCAPAIAN (ACHIEVEMENTS)
+// 3. DATA PENCAPAIAN (ACHIEVEMENTS) & MEDAL SHOP
 // ==========================================
-const ACHIEVEMENTS_LIST = [
-    // --- Category 1: Leaderboard & Academics ---
-    { id: "ach_01", name: "First Steps", description: "Collect 100 Total Score.", titleReward: "The Alphabet Apprentice", coinReward: 20 },
-    { id: "ach_02", name: "Brainiac", description: "Collect 1,000 Total Score.", titleReward: "The Grammar Scholar", coinReward: 40 },
-    { id: "ach_03", name: "Walking Dictionary", description: "Collect 5,000 Total Score.", titleReward: "The Vocabulary Virtuoso", coinReward: 60 },
-    { id: "ach_04", name: "Einstein's Heir", description: "Collect 10,000 Total Score.", titleReward: "The Literary Mastermind", coinReward: 100 },
-    { id: "ach_05", name: "Flawless English", description: "Get a Perfect Score in any 5 games.", titleReward: "The Perfect Proofreader", coinReward: 200 },
+// PENTING: Gunakan nama 'achievementsData' supaya selari dengan shop.js
+const achievementsData = [
+    // --- Category 1: Leaderboard & Academics (TIER COMMON/RARE/EPIC/LEGENDARY) ---
+    { id: "ach_01", name: "First Steps", description: "Collect 100 Total Score.", titleReward: "The Alphabet Apprentice", coinReward: 20, price: 500, tier: "common", image: "assets/badges/alphabetApprentice.png", reqType: "total_score", reqValue: 100 },
+    { id: "ach_02", name: "Brainiac", description: "Collect 1,000 Total Score.", titleReward: "The Grammar Scholar", coinReward: 40, price: 1000, tier: "rare", image: "assets/badges/grammarScholar.png", reqType: "total_score", reqValue: 1000 },
+    { id: "ach_03", name: "Walking Dictionary", description: "Collect 5,000 Total Score.", titleReward: "The Vocabulary Virtuoso", coinReward: 60, price: 5000, tier: "epic", image: "assets/badges/vocabularyVirtuoso.png", reqType: "total_score", reqValue: 5000 },
+    { id: "ach_04", name: "Einstein's Heir", description: "Collect 10,000 Total Score.", titleReward: "The Literary Mastermind", coinReward: 100, price: 10000, tier: "legendary", image: "assets/badges/literaryMastermind.png", reqType: "total_score", reqValue: 10000 },
+    { id: "ach_05", name: "Flawless English", description: "Get a Perfect Score in any 5 games.", titleReward: "The Perfect Proofreader", coinReward: 200, price: 10000, tier: "legendary", image: "assets/badges/flawlessEnglish.png", reqType: "perfect_scores", reqValue: 5 },
 
     // --- Category 2: Challenge Mode ---
-    { id: "ach_06", name: "Brave Speaker", description: "Send your first challenge to a friend.", titleReward: "The Debate Challenger", coinReward: 20 },
-    { id: "ach_07", name: "First Victory", description: "Win a friend's challenge for the first time.", titleReward: "The Fluent Victor", coinReward: 40 },
-    { id: "ach_08", name: "Unbeatable", description: "Win 10 challenges overall.", titleReward: "The Spelling Champion", coinReward: 60 },
-    { id: "ach_09", name: "Worthy Opponent", description: "Tie a friend's score in challenge mode.", titleReward: "The Peer Reviewer", coinReward: 20 },
+    { id: "ach_06", name: "Brave Speaker", description: "Send your first challenge to a friend.", titleReward: "The Debate Challenger", coinReward: 20, price: 500, tier: "common", image: "assets/badges/braveSpeaker.png", reqType: "send_challenge", reqValue: 1 },
+    { id: "ach_07", name: "First Victory", description: "Win a friend's challenge for the first time.", titleReward: "The Fluent Victor", coinReward: 40, price: 1000, tier: "rare", image: "assets/badges/fluentVictor.png", reqType: "win_challenge", reqValue: 1 },
+    { id: "ach_08", name: "Unbeatable", description: "Win 10 challenges overall.", titleReward: "The Spelling Champion", coinReward: 60, price: 10000, tier: "legendary", image: "assets/badges/spellingChampion.png", reqType: "win_challenge", reqValue: 10 },
+    { id: "ach_09", name: "Worthy Opponent", description: "Tie a friend's score in challenge mode.", titleReward: "The Peer Reviewer", coinReward: 20, price: 5000, tier: "epic", image: "assets/badges/peerReviewer.png", reqType: "tie_challenge", reqValue: 1 },
 
     // --- Category 3: Economy & Wealth ---
-    { id: "ach_10", name: "First Paycheck", description: "Collect 1,000 Coins.", titleReward: "The Knowledge Seeker", coinReward: 20 },
-    { id: "ach_11", name: "Big Spender", description: "Spend 5,000 Coins in the Shop.", titleReward: "The Resource Investor", coinReward: 40 },
-    { id: "ach_12", name: "Rolling in Gold", description: "Collect 20,000 Coins overall.", titleReward: "The Wealthy Wordsmith", coinReward: 200 },
+    { id: "ach_10", name: "First Paycheck", description: "Collect 1,000 Coins.", titleReward: "The Knowledge Seeker", coinReward: 20, price: 500, tier: "common", image: "assets/badges/knowledgeSeeker.png", reqType: "total_coins", reqValue: 1000 },
+    { id: "ach_11", name: "Big Spender", description: "Spend 5,000 Coins in the Shop.", titleReward: "The Resource Investor", coinReward: 40, price: 1000, tier: "rare", image: "assets/badges/resourceInvestor.png", reqType: "spend_coins", reqValue: 5000 },
+    { id: "ach_12", name: "Rolling in Gold", description: "Collect 20,000 Coins overall.", titleReward: "The Wealthy Wordsmith", coinReward: 200, price: 5000, tier: "epic", image: "assets/badges/wealthyWordsmith.png", reqType: "total_coins_earned", reqValue: 20000 },
 
     // --- Category 4: Avatar Collection ---
-    { id: "ach_13", name: "New Look", description: "Buy your first avatar.", titleReward: "The Style Articulator", coinReward: 200 },
-    { id: "ach_14", name: "Wardrobe Full", description: "Collect 5 different avatars.", titleReward: "The Guardian Collector", coinReward: 1000 },
-    { id: "ach_15", name: "Max Power", description: "Upgrade any avatar to Level 10 (Max Level).", titleReward: "The Syntax Sage", coinReward: 2000 },
-    { id: "ach_16", name: "Guardian Master", description: "Buy all animal or fantasy-themed avatars.", titleReward: "The Lore Keeper", coinReward: 5000 },
+    { id: "ach_13", name: "New Look", description: "Buy your first avatar.", titleReward: "The Style Articulator", coinReward: 200, price: 500, tier: "common", image: "assets/badges/styleArticulator.png", reqType: "unlock_avatar", reqValue: 1 },
+    { id: "ach_14", name: "Wardrobe Full", description: "Collect 5 different avatars.", titleReward: "The Guardian Collector", coinReward: 1000, price: 1000, tier: "rare", image: "assets/badges/guardianCollector.png", reqType: "unlock_avatar", reqValue: 5 },
+    { id: "ach_15", name: "Max Power", description: "Upgrade any avatar to Level 10 (Max Level).", titleReward: "The Syntax Sage", coinReward: 2000, price: 5000, tier: "epic", image: "assets/badges/syntaxSage.png", reqType: "avatar_level", reqValue: 10 },
+    { id: "ach_16", name: "Guardian Master", description: "Buy all animal or fantasy-themed avatars.", titleReward: "The Lore Keeper", coinReward: 5000, price: 10000, tier: "legendary", image: "assets/badges/guardianMaster.png", reqType: "all_avatars", reqValue: 1 },
 
     // --- Category 5: Dedication & Events ---
-    { id: "ach_17", name: "Event Hunter", description: "Play during a Limited Time Event.", titleReward: "The Active Participant", coinReward: 200 },
-    { id: "ach_18", name: "Night Owl", description: "Play a game after 10 PM.", titleReward: "The Midnight Reader", coinReward: 100 },
-    { id: "ach_19", name: "Early Bird", description: "Play a game before 7 AM.", titleReward: "The Morning Orator", coinReward: 100 },
+    { id: "ach_17", name: "Event Hunter", description: "Play during a Limited Time Event.", titleReward: "The Active Participant", coinReward: 200, price: 500, tier: "common", image: "assets/badges/activeParticipant.png", reqType: "special_event", reqValue: 1 },
+    { id: "ach_18", name: "Night Owl", description: "Play a game after 10 PM.", titleReward: "The Midnight Reader", coinReward: 100, price: 500, tier: "common", image: "assets/badges/midnightReader.png", reqType: "play_time_late", reqValue: 22 },
+    { id: "ach_19", name: "Early Bird", description: "Play a game before 7 AM.", titleReward: "The Morning Orator", coinReward: 100, price: 500, tier: "common", image: "assets/badges/morningOrator.png", reqType: "play_time_early", reqValue: 7 },
 
     // --- Category 6: Persistence & Streaks ---
-    { id: "ach_20", name: "Weekend Warrior", description: "Play at least one game on a Saturday or Sunday.", titleReward: "The Weekend Writer", coinReward: 20 },
-    { id: "ach_21", name: "3-Day Streak", description: "Play at least one game for 3 consecutive days.", titleReward: "The Consistent Student", coinReward: 200 },
-    { id: "ach_22", name: "1-Week Streak", description: "Play for 7 consecutive days without failing.", titleReward: "The Dedicated Linguist", coinReward: 500 },
-    { id: "ach_23", name: "Marathoner", description: "Complete 5 different games in a single day.", titleReward: "The Language Marathoner", coinReward: 100 },
+    { id: "ach_20", name: "Weekend Warrior", description: "Play at least one game on a Saturday or Sunday.", titleReward: "The Weekend Writer", coinReward: 20, price: 500, tier: "common", image: "assets/badges/weekendWriter.png", reqType: "play_weekend", reqValue: 1 },
+    { id: "ach_21", name: "3-Day Streak", description: "Play at least one game for 3 consecutive days.", titleReward: "The Consistent Student", coinReward: 200, price: 1000, tier: "rare", image: "assets/badges/consistentStudent.png", reqType: "login_streak", reqValue: 3 },
+    { id: "ach_22", name: "1-Week Streak", description: "Play for 7 consecutive days without failing.", titleReward: "The Dedicated Linguist", coinReward: 500, price: 5000, tier: "epic", image: "assets/badges/dedicatedLinguist.png", reqType: "login_streak", reqValue: 7 },
+    { id: "ach_23", name: "Marathoner", description: "Complete 5 different games in a single day.", titleReward: "The Language Marathoner", coinReward: 100, price: 5000, tier: "epic", image: "assets/badges/languageMarathoner.png", reqType: "daily_games", reqValue: 5 },
 
     // --- Category 7: Game Mastery ---
-    { id: "ach_24", name: "The Explorer", description: "Play all 12 games at least once.", titleReward: "The Syllabus Explorer", coinReward: 2000 },
-    { id: "ach_25", name: "Jack of All Trades", description: "Score at least 50 points in each of the 12 games.", titleReward: "The Polymath", coinReward: 2000 },
-    { id: "ach_26", name: "Comeback Kid", description: "Get a Perfect Score in a game you previously scored low in.", titleReward: "The Resilient Reviser", coinReward: 200 },
-    { id: "ach_27", name: "Triple Threat", description: "Get a Perfect Score in 3 different games.", titleReward: "The English Prodigy", coinReward: 200 },
+    { id: "ach_24", name: "The Explorer", description: "Play all 12 games at least once.", titleReward: "The Syllabus Explorer", coinReward: 2000, price: 5000, tier: "epic", image: "assets/badges/syllabusExplorer.png", reqType: "unique_games", reqValue: 12 },
+    { id: "ach_25", name: "Jack of All Trades", description: "Score at least 50 points in each of the 12 games.", titleReward: "The Polymath", coinReward: 2000, price: 5000, tier: "epic", image: "assets/badges/polymath.png", reqType: "high_score_all", reqValue: 12 },
+    { id: "ach_26", name: "Comeback Kid", description: "Get a Perfect Score in a game you previously scored low in.", titleReward: "The Resilient Reviser", coinReward: 200, price: 5000, tier: "epic", image: "assets/badges/resilientReviser.png", reqType: "comeback_win", reqValue: 1 },
+    { id: "ach_27", name: "Triple Threat", description: "Get a Perfect Score in 3 different games.", titleReward: "The English Prodigy", coinReward: 200, price: 5000, tier: "epic", image: "assets/badges/englishProdigy.png", reqType: "perfect_scores", reqValue: 3 },
 
     // --- Category 8: Social & Advanced Challenges ---
-    { id: "ach_28", name: "Friendly Rival", description: "Send 10 challenge codes to friends.", titleReward: "The Study Buddy", coinReward: 100 },
-    { id: "ach_29", name: "Challenge Addict", description: "Complete 50 challenges overall.", titleReward: "The Forum Debater", coinReward: 200 },
-    { id: "ach_30", name: "Good Sport", description: "Lose 5 challenges. Don't give up!", titleReward: "The Gracious Learner", coinReward: 100 },
-    { id: "ach_31", name: "Close Call", description: "Win a challenge with a narrow margin of 1 to 5 points.", titleReward: "The Sharp Thinker", coinReward: 200 },
-    { id: "ach_32", name: "Academic Comeback", description: "Defeat a friend who previously beat your record.", titleReward: "The Academic Redeemer", coinReward: 200 },
+    { id: "ach_28", name: "Friendly Rival", description: "Send 10 challenge codes to friends.", titleReward: "The Study Buddy", coinReward: 100, price: 500, tier: "common", image: "assets/badges/studyBuddy.png", reqType: "send_challenge", reqValue: 10 },
+    { id: "ach_29", name: "Challenge Addict", description: "Complete 50 challenges overall.", titleReward: "The Forum Debater", coinReward: 200, price: 1000, tier: "rare", image: "assets/badges/forumDebater.png", reqType: "total_challenges", reqValue: 50 },
+    { id: "ach_30", name: "Good Sport", description: "Lose 5 challenges. Don't give up!", titleReward: "The Gracious Learner", coinReward: 100, price: 500, tier: "common", image: "assets/badges/graciousLearner.png", reqType: "lose_challenge", reqValue: 5 },
+    { id: "ach_31", name: "Close Call", description: "Win a challenge with a narrow margin of 1 to 5 points.", titleReward: "The Sharp Thinker", coinReward: 200, price: 5000, tier: "epic", image: "assets/badges/sharpThinker.png", reqType: "narrow_win", reqValue: 1 },
+    { id: "ach_32", name: "Academic Comeback", description: "Defeat a friend who previously beat your record.", titleReward: "The Academic Redeemer", coinReward: 200, price: 10000, tier: "legendary", image: "assets/badges/academicComeback.png", reqType: "revenge_win", reqValue: 1 },
 
     // --- Category 9: Advanced Inventory ---
-    { id: "ach_33", name: "Window Shopper", description: "Open the Shop menu 20 times.", titleReward: "The Curious Browser", coinReward: 20 },
-    { id: "ach_34", name: "Avid Collector", description: "Collect 10 different avatars in your inventory.", titleReward: "The Archive Master", coinReward: 2000 },
-    { id: "ach_35", name: "Elite Squad", description: "Upgrade 3 different avatars to Level 10 (Max Level).", titleReward: "The Dean of Guardians", coinReward: 5000 },
-    { id: "ach_36", name: "Loyal Companion", description: "Equip the same avatar for 7 consecutive days.", titleReward: "The Steadfast Scholar", coinReward: 200 },
+    { id: "ach_33", name: "Window Shopper", description: "Open the Shop menu 20 times.", titleReward: "The Curious Browser", coinReward: 20, price: 500, tier: "common", image: "assets/badges/curiousBrowser.png", reqType: "visit_shop", reqValue: 20 },
+    { id: "ach_34", name: "Avid Collector", description: "Collect 10 different avatars in your inventory.", titleReward: "The Archive Master", coinReward: 2000, price: 10000, tier: "legendary", image: "assets/badges/archiveMaster.png", reqType: "unlock_avatar", reqValue: 10 },
+    { id: "ach_35", name: "Elite Squad", description: "Upgrade 3 different avatars to Level 10 (Max Level).", titleReward: "The Dean of Guardians", coinReward: 5000, price: 5000, tier: "epic", image: "assets/badges/deanOfGuardians.png", reqType: "multiple_avatar_level", reqValue: 3 },
+    { id: "ach_36", name: "Loyal Companion", description: "Equip the same avatar for 7 consecutive days.", titleReward: "The Steadfast Scholar", coinReward: 200, price: 10000, tier: "legendary", image: "assets/badges/steadfastScholar.png", reqType: "avatar_streak", reqValue: 7 },
 
     // --- Category 10: Special Events & Hidden ---
-    { id: "ach_37", name: "Merdeka Scholar", description: "Log in and play on August 31st.", titleReward: "The Patriotic Poet", coinReward: 1000 },
-    { id: "ach_38", name: "Holiday Gamer", description: "Log in and play during the December holidays.", titleReward: "The Festive Storyteller", coinReward: 1000 },
-    { id: "ach_39", name: "First Arrival", description: "Log in to the Game Hub for the first time.", titleReward: "The Freshman", coinReward: 20 },
-    { id: "ach_40", name: "Secret Finder", description: "??? (Discover the hidden secret in the Game Hub)", titleReward: "The Context Detective", coinReward: 5000 }
+    { id: "ach_37", name: "Merdeka Scholar", description: "Log in and play on August 31st.", titleReward: "The Patriotic Poet", coinReward: 1000, price: 10000, tier: "legendary", image: "assets/badges/patrioticPoet.png", reqType: "merdeka_day", reqValue: 1 },
+    { id: "ach_38", name: "Holiday Gamer", description: "Log in and play during the December holidays.", titleReward: "The Festive Storyteller", coinReward: 1000, price: 5000, tier: "epic", image: "assets/badges/festiveStoryteller.png", reqType: "play_month", reqValue: 12 },
+    { id: "ach_39", name: "First Arrival", description: "Log in to the Game Hub for the first time.", titleReward: "The Freshman", coinReward: 20, price: 500, tier: "common", image: "assets/badges/freshman.png", reqType: "login_count", reqValue: 1 },
+    { id: "ach_40", name: "Secret Finder", description: "??? (Discover the hidden secret in the Game Hub)", titleReward: "The Context Detective", coinReward: 5000, price: 10000, tier: "legendary", image: "assets/badges/contextDetective.png", reqType: "hidden_secret", reqValue: 1 },
+    
+    // --- Lencana dari kod cikgu yang tak ada dalam data lama (saya tambah untuk lengkap) ---
+    { id: "ach_41", name: "Top Honor Roll", description: "Reach Rank 3 in the Leaderboard.", titleReward: "Top Honor Roll", coinReward: 500, price: 1000, tier: "rare", image: "assets/badges/topHonorRoll.png", reqType: "rank", reqValue: 3 },
+    { id: "ach_42", name: "Silver Laureate", description: "Reach Rank 2 in the Leaderboard.", titleReward: "Silver Laureate", coinReward: 1000, price: 5000, tier: "epic", image: "assets/badges/silverLaureate.png", reqType: "rank", reqValue: 2 },
+    { id: "ach_43", name: "Supreme Valedictorian", description: "Reach Rank 1 in the Leaderboard.", titleReward: "Supreme Valedictorian", coinReward: 2000, price: 10000, tier: "legendary", image: "assets/badges/supremeValedictorian.png", reqType: "rank", reqValue: 1 }
 ];
 
 // ==========================================

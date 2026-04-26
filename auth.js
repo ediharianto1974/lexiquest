@@ -53,6 +53,13 @@ if (localPlayerData && localPlayerData.level >= 0) { // (Tukar ke 15 nanti)
 function triggerGameHooks() {
     if (studentInfo.name === "SUPER ADMIN" || studentInfo.class === "ADMIN") return; 
 
+    // ==========================================
+    // 🎥 CCTV TRACKER: REKOD LOG MASUK (LOGIN)
+    // ==========================================
+    if (window.Trackers) {
+        Trackers.rekodLogin();
+    }
+
     if (typeof applyTitleStyle === "function") applyTitleStyle(localPlayerData.activeTitle);
     if (typeof updatePlayerLevelUI === 'function') updatePlayerLevelUI();
     if (typeof updateCategoryProgress === "function") updateCategoryProgress();
@@ -60,6 +67,14 @@ function triggerGameHooks() {
     if (typeof updateDashboardAvatars === "function") updateDashboardAvatars();
     if (typeof checkAchievements === "function") checkAchievements();
     if (typeof listenToActiveBoss === "function") listenToActiveBoss();
+
+    setMyOnlineStatus(true);
+    listenToActivePlayers();
+    listenForNotifications();
+
+    setInterval(() => {
+    setMyOnlineStatus(true);
+    }, 300000);
     
     if (typeof getCurrentEvent === "function") {
         const currentEvent = getCurrentEvent();
@@ -315,7 +330,10 @@ function updateUI() {
     }
 }
 
-function logout() {
+async function logout() {
+    // Tukar status jadi offline sebelum keluar
+    await setMyOnlineStatus(false); 
+    
     localStorage.clear();
     location.reload();
 }
@@ -843,5 +861,372 @@ async function deleteAccount(docId) {
             console.error(e);
             Swal.fire("Ralat", "Gagal memadam akaun.", "error");
         }
+    }
+}
+
+// ==========================================
+// 12. FUNGSI PEMAIN AKTIF (REAL-TIME FIRESTORE)
+// ==========================================
+
+async function setMyOnlineStatus(status) {
+    // Pastikan data murid tempatan ada dan Firebase (db) wujud
+    if (!studentInfo || !studentInfo.name || typeof db === 'undefined') return;
+    
+    // Elakkan Game Master/Admin dari masuk senarai
+    if (studentInfo.name === "SUPER ADMIN" || studentInfo.class === "ADMIN") return;
+
+    try {
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        const userRef = db.collection('players').doc(docId); 
+        await userRef.update({
+            isOnline: status,
+            lastActive: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+        console.log("Ralat kemaskini status online:", error);
+    }
+}
+
+let unreadChats = []; 
+
+function listenForNotifications() {
+    if (!studentInfo) return;
+
+    db.collection('chats')
+      .where('unreadFor', '==', studentInfo.name)
+      .onSnapshot((snapshot) => {
+          unreadChats = [];
+          
+          snapshot.forEach(doc => {
+              const data = doc.data();
+              // Jika ada pengirim dan ia bukan diri kita sendiri
+              if (data.lastSender && data.lastSender !== studentInfo.name) {
+                  unreadChats.push(data.lastSender);
+              }
+          });
+          
+          // Debugging: Buka "Inspect Element > Console" untuk lihat jika radar ini berfungsi
+          console.log("Mesej belum dibaca dari:", unreadChats);
+          
+// GANTIKAN BAHAGIAN INI:
+          // Paksa senarai 'Active Players' dilukis semula dengan kemaskini status kita
+          if (typeof setMyOnlineStatus === "function") {
+              setMyOnlineStatus(true); 
+          }
+      });
+}
+
+function listenToActivePlayers() {
+    if (typeof db === 'undefined' || !studentInfo) return;
+
+    db.collection('players')
+      .where('school', '==', studentInfo.school)
+      .where('isOnline', '==', true)
+      .onSnapshot((snapshot) => {
+          const container = document.getElementById('dashboard-active-players-list');
+          const countBadge = document.getElementById('active-players-count');
+          
+          if (!container || !countBadge) return;
+          
+          container.innerHTML = ''; 
+          let activeCount = 0;
+          const now = new Date(); 
+
+          snapshot.forEach((doc) => {
+              const player = doc.data();
+              
+              // 1. Tapis ADMIN SEBENAR sahaja
+              if (player.name && player.name.toUpperCase() === "SUPER ADMIN") return;
+              if (player.class && player.class.toUpperCase() === "ADMIN") return;
+              
+              // 2. Tapis Diri Sendiri (supaya tak nampak nama sendiri dalam senarai)
+              if (player.name === studentInfo.name) return; 
+
+              // 3. Tapis Masa (Heartbeat - buang Ghost Status jika lebih 15 minit)
+              if (player.lastActive) {
+                  const lastActiveDate = player.lastActive.toDate(); 
+                  const diffMinutes = (now - lastActiveDate) / (1000 * 60);
+                  if (diffMinutes > 15) return; 
+              }
+
+              // LULUS TAPISAN - Mula kira pemain
+              activeCount++;
+
+              let avatarData = player.activeAvatar || "fas fa-user";
+              let miniAvatar = '';
+
+              if (avatarData.icon) {
+                  miniAvatar = `<i class="${avatarData.icon} text-gray-500"></i>`;
+              } else if (typeof avatarData === 'string' && avatarData.startsWith('img|')) {
+                  let url = avatarData.replace('img|', '');
+                  miniAvatar = `<img src="${url}" class="w-full h-full object-contain">`;
+              } else if (typeof avatarData === 'string' && avatarData.startsWith('icon|')) {
+                  let icon = avatarData.replace('icon|', '');
+                  miniAvatar = `<i class="${icon} text-gray-500"></i>`;
+              } else {
+                  miniAvatar = `<i class="fas fa-user text-gray-500"></i>`;
+              }
+
+              // ==========================================
+              // SEMAK STATUS NOTIFIKASI MESEJ BAHARU
+              // ==========================================
+              const isUnread = typeof unreadChats !== 'undefined' && unreadChats.includes(player.name);
+
+              const playerHtml = `
+                  <div class="flex items-center gap-3 bg-white p-2 rounded-xl border ${isUnread ? 'border-red-400 bg-red-50' : 'border-gray-100'} shadow-sm hover:border-indigo-200 transition-colors cursor-pointer relative" onclick="openChatWith('${player.name}')">
+                      
+                      ${isUnread ? '<span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse z-10 shadow-sm"></span>' : ''}
+
+                      <div class="w-8 h-8 bg-indigo-50 rounded-full flex items-center justify-center text-sm flex-shrink-0 overflow-visible relative drop-shadow-sm">
+                          ${miniAvatar}
+                      </div>
+                      
+                      <div class="flex flex-col min-w-0">
+                          <span class="text-[11px] font-black ${isUnread ? 'text-red-700' : 'text-gray-800'} truncate leading-tight">${player.name || "Unknown"}</span>
+                          <span class="text-[9px] ${isUnread ? 'text-red-500' : 'text-gray-500'} font-bold leading-tight mt-0.5">Lvl ${player.level || 1}</span>
+                      </div>
+
+                      ${isUnread ? '<span class="ml-auto text-[9px] font-black text-red-500 animate-bounce tracking-widest">NEW!</span>' : ''}
+                  </div>
+              `;
+              container.insertAdjacentHTML('beforeend', playerHtml);
+          });
+
+          // Kemaskini lencana bilangan pemain hijau
+          countBadge.innerText = activeCount;
+
+          if (activeCount === 0) {
+              container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-6 opacity-50">
+                    <i class="fas fa-ghost text-2xl text-gray-400 mb-2"></i>
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sunyi sepi...</span>
+                </div>`;
+          }
+      });
+}
+              
+// ==========================================
+// KAWALAN UI & FIREBASE KOTAK SEMBANG (CHAT)
+// ==========================================
+
+let currentChatRecipient = ""; 
+let currentChatSnapshot = null; // Untuk simpan status 'telinga' Firebase
+
+// 1. Fungsi cipta ID Bilik Sembang yang unik (Gabungan 2 nama)
+function getChatRoomId(player1, player2) {
+    // Susun nama mengikut abjad supaya Ahmad-Siti dan Siti-Ahmad guna bilik yang sama
+    const sortedNames = [player1, player2].sort();
+    // Buang jarak untuk elak ralat pada nama dokumen Firestore
+    return `room_${sortedNames[0]}_${sortedNames[1]}`.replace(/\s+/g, '_');
+}
+
+// 2. Buka kotak sembang & mula dengar mesej
+async function openChatWith(playerName) {
+    currentChatRecipient = playerName;
+    
+    // Buka UI kotak sembang
+    const chatBox = document.getElementById('floating-chat-box');
+    const recipientNameEl = document.getElementById('chat-recipient-name');
+    const bodyContainer = document.getElementById('chat-body-container');
+    const minimizeBtn = document.getElementById('btn-minimize-chat');
+    
+    recipientNameEl.innerText = playerName;
+    bodyContainer.classList.remove('hidden');
+    minimizeBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+    
+    chatBox.classList.remove('hidden');
+    chatBox.classList.add('flex');
+    
+    // ==========================================
+    // KEMASKINI BARU: Padam status 'unread' 
+    // ==========================================
+    const myName = studentInfo.name;
+    const roomId = getChatRoomId(myName, playerName);
+    
+    try {
+        // Kosongkan unreadFor supaya titik merah hilang
+        await db.collection('chats').doc(roomId).update({
+            unreadFor: "" 
+        });
+    } catch (e) {
+        // Kita abaikan jika ralat (contohnya dokumen belum pernah dicipta)
+        console.log("Dokumen chat belum wujud, tiada status unread untuk dipadam.");
+    }
+
+    // Mula dengar mesej masuk
+    listenToChatMessages(playerName);
+}
+
+// 3. Fungsi Dengar Mesej (Real-time dari Firestore)
+function listenToChatMessages(recipientName) {
+    const myName = studentInfo.name;
+    const roomId = getChatRoomId(myName, recipientName);
+    const messagesContainer = document.getElementById('chat-messages');
+
+    // Jika sebelum ini ada dengar chat orang lain, matikan 'telinga' itu dulu
+    if (currentChatSnapshot) {
+        currentChatSnapshot(); 
+    }
+
+    messagesContainer.innerHTML = '<div class="text-center text-xs text-gray-400 mt-4"><i class="fas fa-spinner fa-spin"></i> Memuatkan mesej...</div>';
+
+    // Dengar perubahan di bilik sembang khusus ini
+    currentChatSnapshot = db.collection('chats').doc(roomId).collection('messages')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot((snapshot) => {
+            messagesContainer.innerHTML = ''; // Kosongkan container
+
+            if (snapshot.empty) {
+                messagesContainer.innerHTML = '<div class="text-center text-xs text-gray-400 mt-4 italic">Belum ada mesej. Ucapkan Hai!</div>';
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const isMe = (data.sender === myName); // Semak siapa hantar
+
+                // Bina HTML berdasarkan siapa yang hantar
+                const msgHtml = isMe ? 
+                    `<div class="flex justify-end mb-2">
+                        <div class="bg-indigo-500 text-white text-[11px] py-2 px-3 rounded-2xl rounded-tr-none shadow-sm max-w-[85%]">
+                            ${data.message}
+                        </div>
+                    </div>` 
+                    : 
+                    `<div class="flex justify-start mb-2">
+                        <div class="bg-white border border-gray-100 text-gray-800 text-[11px] py-2 px-3 rounded-2xl rounded-tl-none shadow-sm max-w-[85%]">
+                            ${data.message}
+                        </div>
+                    </div>`;
+
+                messagesContainer.insertAdjacentHTML('beforeend', msgHtml);
+            });
+
+            // Auto-scroll ke mesej paling bawah (mesej terkini)
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        });
+}
+
+// ==========================================
+// 8. LOGIK QUICK CHAT (MESEJ PANTAS)
+// ==========================================
+
+let isQuickChatMenuOpen = false;
+
+// Buka/Tutup menu pop-up bawah
+function toggleQuickChat(forceState) {
+    const menu = document.getElementById('quick-chat-menu');
+    const chevron = document.getElementById('quick-chat-chevron');
+    
+    isQuickChatMenuOpen = forceState !== undefined ? forceState : !isQuickChatMenuOpen;
+
+    if (isQuickChatMenuOpen) {
+        menu.classList.remove('hidden');
+        menu.classList.add('flex');
+        chevron.classList.add('rotate-180');
+        showQuickChatCategories(); // Reset sentiasa tunjuk kategori mula-mula
+    } else {
+        menu.classList.add('hidden');
+        menu.classList.remove('flex');
+        chevron.classList.remove('rotate-180');
+    }
+}
+
+// Papar senarai Kategori (Greetings, Social, dll)
+function showQuickChatCategories() {
+    const list = document.getElementById('quick-chat-list');
+    const title = document.getElementById('quick-chat-title');
+    const backBtn = document.getElementById('quick-chat-back');
+
+    title.innerText = "KATEGORI MESEJ";
+    backBtn.classList.add('hidden');
+    list.innerHTML = '';
+
+    // Gelung baca dari objek quickChatData
+    for (let category in quickChatData) {
+        const btn = document.createElement('button');
+        btn.className = "text-left text-xs font-bold text-gray-700 bg-gray-50 hover:bg-indigo-50 p-2.5 rounded-lg border border-gray-100 hover:border-indigo-200 transition-colors shadow-sm active:scale-[0.98]";
+        btn.innerText = category;
+        btn.onclick = () => showQuickChatMessages(category);
+        list.appendChild(btn);
+    }
+}
+
+// Papar ayat sebenar di dalam kategori yang dipilih
+function showQuickChatMessages(category) {
+    const list = document.getElementById('quick-chat-list');
+    const title = document.getElementById('quick-chat-title');
+    const backBtn = document.getElementById('quick-chat-back');
+
+    title.innerText = category.toUpperCase();
+    backBtn.classList.remove('hidden');
+    list.innerHTML = '';
+
+    const messages = quickChatData[category];
+    messages.forEach(msg => {
+        const btn = document.createElement('button');
+        btn.className = "text-left text-[11px] font-medium text-gray-800 bg-white hover:bg-green-50 p-2.5 rounded-lg border border-gray-100 hover:border-green-300 transition-colors shadow-sm active:scale-[0.98]";
+        btn.innerText = msg;
+        // Apabila mesej ditekan, hantar terus!
+        btn.onclick = () => sendQuickMessage(msg); 
+        list.appendChild(btn);
+    });
+}
+
+// Hantar Mesej ke Firebase (Ganti fungsi sendMessage lama)
+async function sendQuickMessage(msgText) {
+    if (!msgText || !currentChatRecipient) return; 
+    
+    const myName = studentInfo.name;
+    const roomId = getChatRoomId(myName, currentChatRecipient);
+    
+    toggleQuickChat(false); // Tutup menu
+    
+    try {
+        // 1. Masukkan mesej ke pangkalan data
+        await db.collection('chats').doc(roomId).collection('messages').add({
+            sender: myName,
+            recipient: currentChatRecipient,
+            message: msgText,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. INI SUIS TITIK MERAH: Maklumkan kepada rakan bahawa ada mesej belum dibaca
+        await db.collection('chats').doc(roomId).set({
+            lastSender: myName,
+            unreadFor: currentChatRecipient 
+        }, { merge: true });
+
+    } catch (error) {
+        console.error("Gagal hantar mesej:", error);
+    }
+}
+
+// 6. Tutup kotak & matikan 'telinga'
+function closeChatBox(event) {
+    if (event) event.stopPropagation(); 
+    
+    const chatBox = document.getElementById('floating-chat-box');
+    chatBox.classList.add('hidden');
+    chatBox.classList.remove('flex');
+    currentChatRecipient = "";
+    
+    if (currentChatSnapshot) {
+        currentChatSnapshot(); // Berhenti dengar mesej bila tutup chat (jimat kuota)
+        currentChatSnapshot = null;
+    }
+}
+
+// 7. Minimize kotak
+function toggleChatMinimize() {
+    const bodyContainer = document.getElementById('chat-body-container');
+    const minimizeBtn = document.getElementById('btn-minimize-chat');
+    
+    if (bodyContainer.classList.contains('hidden')) {
+        bodyContainer.classList.remove('hidden');
+        minimizeBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+    } else {
+        bodyContainer.classList.add('hidden');
+        minimizeBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
     }
 }
