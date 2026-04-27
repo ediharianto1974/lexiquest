@@ -130,6 +130,18 @@ function initGame(type) {
     const playerName = localPlayerData.passcode || localPlayerData.name || "guest";
     const userKey = "memoriPemain_" + playerName;
 
+// ==========================================
+    // 🟢 KEMAS KINI STATUS FIREBASE KE "IN-GAME"
+    // ==========================================
+    if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        db.collection("players").doc(docId).set({
+            isOnline: true,
+            currentStatus: "in-game"
+        }, { merge: true }).catch(e => console.log("Gagal kemaskini status in-game:", e));
+    }
+    // ==========================================
+
     // Pemulihan Memori
     let currentMem = localPlayerData.lastPlayed || [];
     if (typeof currentMem === 'string') currentMem = currentMem.replace(/[\[\]"'\\]/g, '').split(',').map(s => s.trim()).filter(s => s !== "");
@@ -738,6 +750,19 @@ window.startMic = function(btnElement) {
 function endGame() {
     // 1. Hentikan masa (jika ia masih berjalan)
     if (typeof currentTimer !== 'undefined') clearInterval(currentTimer);
+
+    // ==========================================
+    // 🟢 (TAMBAHAN KOD STATUS PVP) KEMAS KINI STATUS FIREBASE KE "IDLE"
+    // ==========================================
+    if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+        // Guna docId yang betul: Sekolah_Kelas_Nama
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        db.collection("players").doc(docId).set({
+            isOnline: true,
+            currentStatus: "idle"
+        }, { merge: true }).catch(e => console.log("Gagal kemaskini status idle:", e));
+    }
+    // ==========================================
 
     let score = 0;
     const inputs = document.querySelectorAll('.game-input');
@@ -1361,14 +1386,16 @@ function sendChallengeInvite_old(opponentName) {
 }
 
 // ==========================================
+// ==========================================
 // A. PENGHANTAR: Fungsi Hantar Jemputan & Had Harian
 // ==========================================
-async function sendChallengeInvite(opponentName) {
+window.sendChallengeInvite = async function(opponentName) {
     const today = new Date().toISOString().split('T')[0];
+    const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
 
     try {
-        // 1. SEMAK HAD HARIAN (Maksimum 2 kali sehari)
-        const playerDoc = await db.collection("players").doc(studentInfo.name).get();
+        // 1. SEMAK HAD HARIAN (Maksimum 10 kali sehari)
+        const playerDoc = await db.collection("players").doc(docId).get();
         if (playerDoc.exists) {
             const data = playerDoc.data();
             if (data.lastPvPDate === today && data.pvpCountToday >= 10) {
@@ -1424,13 +1451,13 @@ async function sendChallengeInvite(opponentName) {
                 setTimeout(() => startPvPMatch(doc.id, data), 2000);
             } else if (data.status === "declined") {
                 unsubscribe();
-                Swal.fire('Ditolak', `${opponentName} sibuk.`, 'error');
+                Swal.fire('Ditolak', `${opponentName} sibuk atau menolak cabaran.`, 'error');
             }
         });
     } catch (error) {
         console.error("Ralat jemputan:", error);
     }
-}
+};
 
 // ==========================================
 // B. PENERIMA: Pendengar Jemputan Masuk (Versi Mantap)
@@ -1550,7 +1577,13 @@ function startPvPMatch(challengeId, challengeData) {
         }
     }).then(() => {
         // 3. Masuk ke Skrin Arena selepas masa tamat
-        showScreen('pvp-arena');
+        if (typeof showScreen === "function") {
+            showScreen('pvp-arena');
+        } else {
+            const pvpArenaScreen = document.getElementById('pvp-arena-screen');
+            if (pvpArenaScreen) pvpArenaScreen.classList.remove('hidden');
+            document.getElementById('challenge-lobby-screen').classList.add('hidden');
+        }
         
         // 4. Aktifkan kotak teks untuk menaip
         const answerInput = document.getElementById('pvp-answer-input');
@@ -1562,10 +1595,10 @@ function startPvPMatch(challengeId, challengeData) {
         setupPvPLogic(challengeId, challengeData);
 
         console.log("🚀 Skrin Arena dipaparkan. Menunggu soalan dari Game Master...");
-        // Fasa seterusnya: Kita akan panggil fungsi jana soalan di sini!
 
-        // 🔴 TAMBAH INI: Kemaskini status ke in-pvp
-        db.collection("players").doc(studentInfo.name).update({
+        // 🔴 TAMBAH INI: Kemaskini status ke in-pvp DENGAN ID YANG BETUL
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        db.collection("players").doc(docId).update({
             currentStatus: "in-pvp"
         }).catch(e => console.log("Ralat update status:", e));
     });
@@ -1619,7 +1652,7 @@ function setupPvPLogic(challengeId, data) {
         if (matchData.isTransitioning) {
             if (inputBox) {
                 inputBox.disabled = true; // Kunci kotak input supaya murid tak keliru
-                inputBox.value = "";      // 🔴 TAMBAH INI: Kosongkan kotak automatik untuk semua pemain!
+                inputBox.value = "";      // Kosongkan kotak automatik
             }
             
             // Tunjuk siapa yang dapat markah
@@ -1733,14 +1766,15 @@ function endPvPMatch() {
         Trackers.rekodKoinDapat(coinReward); // Rekod jumlah keseluruhan syiling
     }
 
-    // 🔴 4. SIMPAN TERUS KE FIREBASE SEBELUM POP-UP (VERSI PALING SELAMAT)
+    // 🔴 4. SIMPAN TERUS KE FIREBASE DENGAN ID YANG BETUL
     const today = new Date().toISOString().split('T')[0];
+    const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
     
-    db.collection("players").doc(studentInfo.name).get().then(doc => {
+    db.collection("players").doc(docId).get().then(doc => {
         let data = doc.exists ? doc.data() : {};
         let newCount = (data.lastPvPDate === today) ? (data.pvpCountToday || 0) + 1 : 1;
 
-        db.collection("players").doc(studentInfo.name).set({
+        db.collection("players").doc(docId).set({
             coins: localPlayerData.coins,
             totalScore: localPlayerData.totalScore,
             lastPvPDate: today,
@@ -1774,12 +1808,13 @@ function endPvPMatch() {
         if (typeof showScreen === "function") {
             showScreen('challenge-lobby-screen');
         } else {
-            document.getElementById('pvp-arena-screen').classList.add('hidden');
+            const pvpArenaScreen = document.getElementById('pvp-arena-screen');
+            if (pvpArenaScreen) pvpArenaScreen.classList.add('hidden');
             document.getElementById('challenge-lobby-screen').classList.remove('hidden');
         }
 
-        // 🟢 TAMBAH INI: Kembalikan status ke idle
-        db.collection("players").doc(studentInfo.name).update({
+        // 🟢 KEMBALIKAN STATUS KE IDLE DENGAN ID YANG BETUL
+        db.collection("players").doc(docId).update({
             currentStatus: "idle"
         }).catch(e => console.log("Ralat update status:", e));
     });
@@ -1788,53 +1823,55 @@ function endPvPMatch() {
 // ==========================================
 // E. PENGESAN JAWAPAN (TRANSAKSI SIAPA CEPAT)
 // ==========================================
-document.getElementById('pvp-answer-input').addEventListener('input', function(e) {
-    if (!currentPvPChallengeId || currentPvPAnswer === undefined || currentPvPAnswer === null) return;
-    
-    // 1. Ambil tekaan murid (jadikan huruf besar & buang ruang kosong)
-    const userInput = String(this.value).toUpperCase().trim();
-    
-    // 2. Ambil jawapan sebenar dari data.js
-    const correctA_raw = String(currentPvPAnswer).toUpperCase().trim();
-    
-    // 3. TEKNIK PECAHAN: Asingkan jawapan jika ada simbol '|'
-    // Contoh: "FARTHEST|FURTHEST" akan menjadi senarai ["FARTHEST", "FURTHEST"]
-    const possibleAnswers = correctA_raw.split('|');
-    
-    // 4. Semak jika tekaan murid ADA dalam senarai jawapan yang sah
-    if (possibleAnswers.includes(userInput)) {
+const pvpAnswerInput = document.getElementById('pvp-answer-input');
+if (pvpAnswerInput) {
+    pvpAnswerInput.addEventListener('input', function(e) {
+        if (!currentPvPChallengeId || currentPvPAnswer === undefined || currentPvPAnswer === null) return;
         
-        this.value = ""; 
-        this.disabled = true; // Kunci segera selepas jawapan betul
+        // 1. Ambil tekaan murid (jadikan huruf besar & buang ruang kosong)
+        const userInput = String(this.value).toUpperCase().trim();
+        
+        // 2. Ambil jawapan sebenar dari data.js
+        const correctA_raw = String(currentPvPAnswer).toUpperCase().trim();
+        
+        // 3. TEKNIK PECAHAN: Asingkan jawapan jika ada simbol '|'
+        const possibleAnswers = correctA_raw.split('|');
+        
+        // 4. Semak jika tekaan murid ADA dalam senarai jawapan yang sah
+        if (possibleAnswers.includes(userInput)) {
+            
+            this.value = ""; 
+            this.disabled = true; // Kunci segera selepas jawapan betul
 
-        const challengeRef = db.collection("challenges").doc(currentPvPChallengeId);
+            const challengeRef = db.collection("challenges").doc(currentPvPChallengeId);
 
-        // 🔴 FIREBASE TRANSACTION (Mengelakkan isu serentak)
-        db.runTransaction(async (transaction) => {
-            const doc = await transaction.get(challengeRef);
-            if (!doc.exists) throw "Game tiada";
-            const data = doc.data();
+            // 🔴 FIREBASE TRANSACTION (Mengelakkan isu serentak)
+            db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(challengeRef);
+                if (!doc.exists) throw "Game tiada";
+                const data = doc.data();
 
-            // Semak jika lawan dah curi mata atau game sedang pause
-            if (data.currentQ !== window.currentPvPQuestionText || data.isTransitioning) {
-                return Promise.reject("Lawan jawab dulu!");
-            }
+                // Semak jika lawan dah curi mata atau game sedang pause
+                if (data.currentQ !== window.currentPvPQuestionText || data.isTransitioning) {
+                    return Promise.reject("Lawan jawab dulu!");
+                }
 
-            const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
-            const newQ = questions[Math.floor(Math.random() * questions.length)];
-            const scoreField = isPlayer1 ? "p1Score" : "p2Score";
+                const questions = gameData[currentPvPCategoryKey] || gameData.missing; 
+                const newQ = questions[Math.floor(Math.random() * questions.length)];
+                const scoreField = isPlayer1 ? "p1Score" : "p2Score";
 
-            // Update markah, rekod siapa jawab dulu, dan trigger "pause"
-            transaction.update(challengeRef, {
-                [scoreField]: (data[scoreField] || 0) + 1, 
-                lastScorer: studentInfo.name, 
-                nextQ: newQ.q,
-                nextA: newQ.a,
-                isTransitioning: true 
+                // Update markah, rekod siapa jawab dulu, dan trigger "pause"
+                transaction.update(challengeRef, {
+                    [scoreField]: (data[scoreField] || 0) + 1, 
+                    lastScorer: studentInfo.name, 
+                    nextQ: newQ.q,
+                    nextA: newQ.a,
+                    isTransitioning: true 
+                });
+            }).catch((err) => {
+                console.log("Transaksi dibatalkan:", err);
+                this.disabled = false; 
             });
-        }).catch((err) => {
-            console.log("Transaksi dibatalkan:", err);
-            this.disabled = false; 
-        });
-    }
-});
+        }
+    });
+}
