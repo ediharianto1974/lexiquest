@@ -1294,27 +1294,49 @@ async function loadAvailableOpponents() {
         let html = "";
         
         // DALAM FUNGSI loadAvailableOpponents()
-snapshot.forEach(doc => {
-    const opponent = doc.data();
+        snapshot.forEach(doc => {
+            const opponent = doc.data();
 
-    // TUKAR opponent.playerName KEPADA opponent.name
-    if (opponent.name !== studentInfo.name) {
-        html += `
-            <li class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border hover:border-red-300 hover:shadow-md transition-all">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center font-black text-red-500 text-xl shadow-inner">
-                        L${opponent.level}
-                    </div>
-                    <div>
-                        <p class="font-black text-gray-800 text-lg">${opponent.name}</p> <p class="text-xs text-gray-500 font-bold">${opponent.school || 'Pemain Bebas'}</p> </div>
-                </div>
-                <button onclick="sendChallengeInvite('${opponent.name}')" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-sm transition-colors">
-                    ⚔️ CABAR
-                </button>
-            </li>
-        `;
-    }
-});
+            // TUKAR opponent.playerName KEPADA opponent.name
+            if (opponent.name !== studentInfo.name) {
+                // --- LOGIK STATUS BERMULA DI SINI ---
+                let status = opponent.currentStatus || 'offline';
+                let dotColor = 'bg-gray-400'; // Lalai: Offline (Hitam/Kelabu)
+                let statusLabel = 'Offline';
+                let btnDisabled = 'disabled';
+                let btnClass = 'bg-gray-300 text-gray-500 cursor-not-allowed'; // Gaya butang dikunci
+
+                // Tukar warna dan label mengikut status
+                if (status === 'idle') {
+                    dotColor = 'bg-green-500';
+                    statusLabel = 'Sedia (Idle)';
+                    btnDisabled = ''; // Buka kunci butang
+                    btnClass = 'bg-red-500 hover:bg-red-600 text-white shadow-sm';
+                } else if (status === 'in-game') {
+                    dotColor = 'bg-yellow-400';
+                    statusLabel = 'Sibuk (In-Game)';
+                } else if (status === 'in-pvp') {
+                    dotColor = 'bg-red-600';
+                    statusLabel = 'Bertarung (PvP)';
+                }
+
+                html += `
+                    <li class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border hover:border-red-300 hover:shadow-md transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="relative w-12 h-12 bg-red-100 rounded-full flex items-center justify-center font-black text-red-500 text-xl shadow-inner">
+                                L${opponent.level}
+                                <span class="absolute bottom-0 right-0 w-3.5 h-3.5 ${dotColor} border-2 border-white rounded-full"></span>
+                            </div>
+                            <div>
+                                <p class="font-black text-gray-800 text-lg">${opponent.name}</p> <p class="text-xs text-gray-500 font-bold">${opponent.school || 'Pemain Bebas'} • <span class="${dotColor.replace('bg-', 'text-')}">${statusLabel}</span></p> </div>
+                        </div>
+                        <button onclick="sendChallengeInvite('${opponent.name}')" ${btnDisabled} class="${btnClass} px-6 py-2 rounded-lg font-bold transition-colors">
+                            ⚔️ CABAR
+                        </button>
+                    </li>
+                `;
+            }
+        });
 
         if (html === "") {
             listContainer.innerHTML = "<li class='text-center font-bold text-gray-500 py-8'>Belum ada pemain lain yang mencapai Level 15. Jadilah yang pertama!</li>";
@@ -1533,10 +1555,15 @@ function startPvPMatch(challengeId, challengeData) {
             answerInput.value = "";
             answerInput.focus();
         }
-    setupPvPLogic(challengeId, challengeData);
+        setupPvPLogic(challengeId, challengeData);
 
         console.log("🚀 Skrin Arena dipaparkan. Menunggu soalan dari Game Master...");
         // Fasa seterusnya: Kita akan panggil fungsi jana soalan di sini!
+
+        // 🔴 TAMBAH INI: Kemaskini status ke in-pvp
+        db.collection("players").doc(studentInfo.name).update({
+            currentStatus: "in-pvp"
+        }).catch(e => console.log("Ralat update status:", e));
     });
 }
 
@@ -1746,6 +1773,11 @@ function endPvPMatch() {
             document.getElementById('pvp-arena-screen').classList.add('hidden');
             document.getElementById('challenge-lobby-screen').classList.remove('hidden');
         }
+
+        // 🟢 TAMBAH INI: Kembalikan status ke idle
+        db.collection("players").doc(studentInfo.name).update({
+            currentStatus: "idle"
+        }).catch(e => console.log("Ralat update status:", e));
     });
 }
 
