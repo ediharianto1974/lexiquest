@@ -1350,10 +1350,8 @@ const achievementsData = [
     { id: "ach_32", name: "Academic Comeback", description: "Defeat a friend who previously beat your record.", titleReward: "The Academic Redeemer", coinReward: 200, price: 10000, tier: "legendary", image: "assets/badges/academicComeback.png", reqType: "revenge_win", reqValue: 1 },
 
     // --- Category 9: Advanced Inventory ---
-    { id: "ach_33", name: "Window Shopper", description: "Open the Shop menu 20 times.", titleReward: "The Curious Browser", coinReward: 20, price: 500, tier: "common", image: "assets/badges/curiousBrowser.png", reqType: "visit_shop", reqValue: 20 },
     { id: "ach_34", name: "Avid Collector", description: "Collect 10 different avatars in your inventory.", titleReward: "The Archive Master", coinReward: 2000, price: 10000, tier: "legendary", image: "assets/badges/archiveMaster.png", reqType: "unlock_avatar", reqValue: 10 },
     { id: "ach_35", name: "Elite Squad", description: "Upgrade 3 different avatars to Level 10 (Max Level).", titleReward: "The Dean of Guardians", coinReward: 5000, price: 5000, tier: "epic", image: "assets/badges/deanOfGuardians.png", reqType: "multiple_avatar_level", reqValue: 3 },
-    { id: "ach_36", name: "Loyal Companion", description: "Equip the same avatar for 7 consecutive days.", titleReward: "The Steadfast Scholar", coinReward: 200, price: 10000, tier: "legendary", image: "assets/badges/steadfastScholar.png", reqType: "avatar_streak", reqValue: 7 },
 
     // --- Category 10: Special Events & Hidden ---
     { id: "ach_37", name: "Merdeka Scholar", description: "Log in and play on August 31st.", titleReward: "The Patriotic Poet", coinReward: 1000, price: 10000, tier: "legendary", image: "assets/badges/patrioticPoet.png", reqType: "merdeka_day", reqValue: 1 },
