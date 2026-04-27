@@ -1293,31 +1293,33 @@ async function loadAvailableOpponents() {
 
         let html = "";
         
-        // DALAM FUNGSI loadAvailableOpponents()
         snapshot.forEach(doc => {
             const opponent = doc.data();
 
-            // TUKAR opponent.playerName KEPADA opponent.name
             if (opponent.name !== studentInfo.name) {
-                // --- LOGIK STATUS BERMULA DI SINI ---
-                let status = opponent.currentStatus || 'offline';
-                let dotColor = 'bg-gray-400'; // Lalai: Offline (Hitam/Kelabu)
+                // --- BACA isOnline DARI SISTEM SEDIA ADA CIKGU ---
+                let isPlayerOnline = opponent.isOnline === true; 
+                let specificStatus = opponent.currentStatus || 'idle'; 
+
+                let dotColor = 'bg-gray-400'; // Lalai: Offline (Kelabu)
                 let statusLabel = 'Offline';
                 let btnDisabled = 'disabled';
-                let btnClass = 'bg-gray-300 text-gray-500 cursor-not-allowed'; // Gaya butang dikunci
+                let btnClass = 'bg-gray-300 text-gray-500 cursor-not-allowed'; // Butang dikunci
 
-                // Tukar warna dan label mengikut status
-                if (status === 'idle') {
-                    dotColor = 'bg-green-500';
-                    statusLabel = 'Sedia (Idle)';
-                    btnDisabled = ''; // Buka kunci butang
-                    btnClass = 'bg-red-500 hover:bg-red-600 text-white shadow-sm';
-                } else if (status === 'in-game') {
-                    dotColor = 'bg-yellow-400';
-                    statusLabel = 'Sibuk (In-Game)';
-                } else if (status === 'in-pvp') {
-                    dotColor = 'bg-red-600';
-                    statusLabel = 'Bertarung (PvP)';
+                // Jika pemain online, barulah kita semak apa dia sedang buat
+                if (isPlayerOnline) {
+                    if (specificStatus === 'idle') {
+                        dotColor = 'bg-green-500';
+                        statusLabel = 'Sedia (Idle)';
+                        btnDisabled = ''; // Buka kunci butang
+                        btnClass = 'bg-red-500 hover:bg-red-600 text-white shadow-sm';
+                    } else if (specificStatus === 'in-game') {
+                        dotColor = 'bg-yellow-400';
+                        statusLabel = 'Sibuk (In-Game)';
+                    } else if (specificStatus === 'in-pvp') {
+                        dotColor = 'bg-red-600';
+                        statusLabel = 'Bertarung (PvP)';
+                    }
                 }
 
                 html += `
@@ -1328,7 +1330,9 @@ async function loadAvailableOpponents() {
                                 <span class="absolute bottom-0 right-0 w-3.5 h-3.5 ${dotColor} border-2 border-white rounded-full"></span>
                             </div>
                             <div>
-                                <p class="font-black text-gray-800 text-lg">${opponent.name}</p> <p class="text-xs text-gray-500 font-bold">${opponent.school || 'Pemain Bebas'} • <span class="${dotColor.replace('bg-', 'text-')}">${statusLabel}</span></p> </div>
+                                <p class="font-black text-gray-800 text-lg">${opponent.name}</p> 
+                                <p class="text-xs text-gray-500 font-bold">${opponent.school || 'Pemain Bebas'} • <span class="${dotColor.replace('bg-', 'text-')}">${statusLabel}</span></p> 
+                            </div>
                         </div>
                         <button onclick="sendChallengeInvite('${opponent.name}')" ${btnDisabled} class="${btnClass} px-6 py-2 rounded-lg font-bold transition-colors">
                             ⚔️ CABAR
