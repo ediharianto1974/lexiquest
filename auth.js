@@ -73,11 +73,14 @@ function triggerGameHooks() {
     listenForNotifications();
 
     // ==========================================
-    // ---> 🟢 TAMBAH KOD STATUS DI SINI <---
+    // ---> 🟢 KOD STATUS MASA LOG MASUK (DIBETULKAN ID) <---
     // ==========================================
-    db.collection("players").doc(studentInfo.name).set({
-        currentStatus: "idle"
-    }, { merge: true }).catch(e => console.log("Ralat kemaskini status online:", e));
+    if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        db.collection("players").doc(docId).set({
+            currentStatus: "idle"
+        }, { merge: true }).catch(e => console.log("Ralat kemaskini status online:", e));
+    }
     // ==========================================
 
     setInterval(() => {
