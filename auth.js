@@ -106,7 +106,17 @@ async function loginStudent() {
 
     if (schoolInput === "ADMIN" && nameInput === "SUPER ADMIN") {
         studentInfo = { name: "SUPER ADMIN", class: "ADMIN", school: "ADMIN" };
-        localPlayerData.activeTitle = "Game Master";
+        
+        // Wujudkan data profil asas supaya sistem tidak ralat
+        localPlayerData = { 
+            name: "SUPER ADMIN",
+            activeTitle: "System Admin", // Gelaran untuk admin
+            level: "-", // Boleh letak simbol atau kosong
+            coins: 0,
+            totalScore: 0,
+            activeAvatar: "👤" // Ikon default admin
+        }; 
+        
         finalizeLogin();
         return;
     }
