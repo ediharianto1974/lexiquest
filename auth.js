@@ -72,8 +72,16 @@ function triggerGameHooks() {
     listenToActivePlayers();
     listenForNotifications();
 
+    // ==========================================
+    // ---> 🟢 TAMBAH KOD STATUS DI SINI <---
+    // ==========================================
+    db.collection("players").doc(studentInfo.name).set({
+        currentStatus: "idle"
+    }, { merge: true }).catch(e => console.log("Ralat kemaskini status online:", e));
+    // ==========================================
+
     setInterval(() => {
-    setMyOnlineStatus(true);
+        setMyOnlineStatus(true);
     }, 300000);
     
     if (typeof getCurrentEvent === "function") {
