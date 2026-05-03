@@ -162,14 +162,66 @@ function openProfile() {
     const titleEl = document.getElementById('profile-active-title');
     if (titleEl) titleEl.innerText = activeTitle;
 
-    // ===== TAMBAH KOD PELUKIS AVATAR DI SINI =====
+    // Kemaskini Avatar di Profil
     if (localPlayerData && localPlayerData.activeAvatar) {
         if (typeof renderAvatarToScreen === 'function') {
             renderAvatarToScreen('profile-avatar-container', localPlayerData.activeAvatar);
         }
     }
 
+    // Panggil fungsi untuk memuatkan senarai Title (Dropdown)
     loadTitleOptions();
+    
+    // 🔥 TAMBAHAN BARU: Panggil fungsi untuk melukis lencana visual di profil
+    paparkanLencanaDiProfil();
+}
+
+// 🔥 FUNGSI BARU UNTUK MEMAPARKAN LENCANA DI SKRIN PROFIL 🔥
+function paparkanLencanaDiProfil() {
+    const badgeContainer = document.getElementById('profile-badges-container');
+    if (!badgeContainer) return; 
+    
+    badgeContainer.innerHTML = ''; 
+
+    const playerInventory = localPlayerData.inventory || [];
+    const playerAchievements = localPlayerData.achievements || [];
+    const ownedBadges = [...new Set([...playerInventory, ...playerAchievements])];
+    
+    const masterAchievements = (typeof achievementsData !== 'undefined') ? achievementsData : [];
+    
+    // Tapis inventory untuk ambil lencana (achievement) sahaja, abaikan item lain seperti Avatar
+    const myBadges = masterAchievements.filter(ach => ownedBadges.includes(ach.id));
+
+    if (myBadges.length === 0) {
+        badgeContainer.innerHTML = `<p class="text-sm text-slate-400 italic">Belum ada lencana yang dimiliki.</p>`;
+        return;
+    }
+
+    // Lukis setiap lencana yang dimiliki
+    myBadges.forEach(badgeInfo => {
+        // Semak sama ada lencana ini ada gambar (image) atau guna ikon emoji
+        let badgeVisual = '';
+        
+        if (badgeInfo.image) {
+            // Jika ada gambar (contoh: dari data.js)
+            badgeVisual = `<img src="${badgeInfo.image}" alt="${badgeInfo.name}" class="w-full h-full object-contain p-1 bg-white rounded-full">`;
+        } else {
+            // Jika tiada gambar, guna emoji biasa (fallback)
+            badgeVisual = `<span class="text-2xl">${badgeInfo.icon || '🏅'}</span>`;
+        }
+
+        const badgeHTML = `
+            <div class="relative group inline-block m-1">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-white border-2 border-indigo-200 shadow-sm transform transition hover:scale-110 cursor-pointer overflow-hidden">
+                    ${badgeVisual}
+                </div>
+                <div class="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs px-2 py-1 rounded pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                    ${badgeInfo.name}
+                </div>
+            </div>
+        `;
+        badgeContainer.insertAdjacentHTML('beforeend', badgeHTML);
+    });
 }
 
 // 2. Tutup Pop-up Profil
@@ -192,7 +244,9 @@ function loadTitleOptions() {
     let currentLevel = getPlayerLevelInfo(score).level;
 
     // A. Masukkan Level Ranks
-    const ranksArray = (typeof LEVEL_RANKS !== 'undefined') ? LEVEL_RANKS : [];
+    const ranksArray = (typeof LEVEL_RANKS !== 'undefined') ? LEVEL_RANKS : 
+                       (typeof levelData !== 'undefined') ? levelData : [];
+    
     ranksArray.forEach(rank => {
         if (currentLevel >= rank.minLevel) { 
             const option = document.createElement('option');
@@ -203,16 +257,20 @@ function loadTitleOptions() {
         }
     });
 
-    // B. Masukkan Achievements
+    // B. Masukkan Achievements (KINI MENCARI DI DALAM INVENTORY JUGA)
+    const playerInventory = localPlayerData.inventory || [];
     const playerAchievements = localPlayerData.achievements || [];
+    // Gabungkan kedua-duanya supaya tiada lencana yang tertinggal
+    const ownedBadges = [...new Set([...playerInventory, ...playerAchievements])]; 
+    
     const masterAchievements = (typeof achievementsData !== 'undefined') ? achievementsData : [];
 
-    if (playerAchievements.length > 0 && masterAchievements.length > 0) {
+    if (ownedBadges.length > 0 && masterAchievements.length > 0) {
         masterAchievements.forEach(ach => {
-            if (playerAchievements.includes(ach.id)) {
+            if (ownedBadges.includes(ach.id)) {
                 const option = document.createElement('option');
                 option.value = ach.name;
-                option.text = `🏆 ${ach.name}`; // ach.name dah memang title
+                option.text = `🏆 ${ach.name}`;
                 selector.add(option);
                 hasOptions = true;
             }

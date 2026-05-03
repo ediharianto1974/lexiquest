@@ -14,7 +14,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const rtdb = firebase.database(); 
-
 // ==========================================
 // 3. INITIALIZATION & AUTO-LOGIN
 // ==========================================
@@ -28,9 +27,15 @@ window.onload = async () => {
         studentInfo = { 
             name: savedName.toUpperCase(), 
             class: savedClass.toUpperCase(), 
-            school: savedSchool.toUpperCase() 
+            school: savedSchool.toUpperCase()
         };
-        await fetchPlayerData();
+        
+        await fetchPlayerData(); // <-- Sistem tarik data dari Firestore di sini
+        
+        // 🔥 TAMBAH 3 BARIS INI: Salin level masuk ke studentInfo 🔥
+        if (typeof localPlayerData !== 'undefined' && localPlayerData) {
+            studentInfo.level = localPlayerData.level || 0;
+        }
         
         document.getElementById('auth-screen')?.classList.add('hidden');
         document.getElementById('login-screen')?.classList.add('hidden');
@@ -40,7 +45,8 @@ window.onload = async () => {
         showDashboardBasedOnRole(); 
         triggerGameHooks();
 
-if (localPlayerData && localPlayerData.level >= 0) { // (Tukar ke 15 nanti)
+        // (Tukar ke 15 nanti)
+        if (localPlayerData && localPlayerData.level >= 0) { 
             if (typeof startChallengeListener === 'function') {
                 startChallengeListener(studentInfo.name);
             }
@@ -519,63 +525,8 @@ async function registerStudent() {
 }
 
 // ==========================================
-// 10. LEADERBOARD & DINAMIK DROPDOWN
+// 10. DINAMIK DROPDOWN
 // ==========================================
-async function loadLeaderboard() {
-    const lbList = document.getElementById('leaderboard-list');
-    const lbSchoolName = document.getElementById('lb-school-name');
-    
-    if (lbSchoolName) lbSchoolName.innerText = `School: ${studentInfo.school}`;
-    if (lbList) lbList.innerHTML = "<p class='text-center py-10 animate-pulse text-indigo-500'>Mencari kedudukan terkini...</p>";
-
-    try {
-        const snapshot = await db.collection("players")
-            .where("school", "==", studentInfo.school)
-            .where("class", "!=", "ADMIN") 
-            .get();
-
-        let players = [];
-        snapshot.forEach(doc => players.push(doc.data()));
-        players.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
-
-        if (lbList) lbList.innerHTML = "";
-        let rank = 1;
-
-        if (players.length === 0) {
-            if (lbList) lbList.innerHTML = "<p class='text-center text-gray-500 font-bold'>Belum ada rekod murid untuk sekolah ini.</p>";
-            return;
-        }
-
-        players.slice(0, 50).forEach(p => {
-            const isMe = p.name === studentInfo.name ? "border-2 border-indigo-500 bg-indigo-50" : "bg-white/50 border border-white/40";
-            const avatarIcon = (p.activeAvatar && p.activeAvatar.icon) ? p.activeAvatar.icon : "👤";
-            
-            const item = document.createElement('div');
-            item.className = `flex justify-between items-center p-4 rounded-2xl mb-2 shadow-sm ${isMe}`;
-            item.innerHTML = `
-                <div class="flex items-center gap-4">
-                    <span class="text-lg font-black ${rank <= 3 ? 'text-yellow-500' : 'text-gray-400'} w-6 text-center">#${rank++}</span>
-                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl shadow-inner border border-gray-100">
-                        ${avatarIcon}
-                    </div>
-                    <div>
-                        <p class="font-bold text-gray-800">${p.name}</p>
-                        <p class="text-xs font-semibold text-indigo-500">${p.class} • ${p.activeTitle || "Novice"}</p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="text-xl font-black text-indigo-700">${p.totalScore || 0}</p>
-                    <p class="text-[10px] text-gray-400 uppercase font-bold">Points</p>
-                </div>
-            `;
-            lbList.appendChild(item);
-        });
-    } catch (error) {
-        console.error("Leaderboard error:", error);
-        if (lbList) lbList.innerHTML = "<p class='text-red-500 text-center font-bold'>Ralat memuat turun data.</p>";
-    }
-}
-
 async function loadSchoolsDropdown() {
     const schoolSelect = document.getElementById('login-school');
     if (!schoolSelect) return;
@@ -886,23 +837,43 @@ async function deleteAccount(docId) {
 }
 
 // ==========================================
-// 12. FUNGSI PEMAIN AKTIF (REAL-TIME FIRESTORE)
+// 12. FUNGSI PEMAIN AKTIF (REAL-TIME FIRESTORE) & KEMASKINI STATUS PVP
 // ==========================================
-
 async function setMyOnlineStatus(status) {
-    // Pastikan data murid tempatan ada dan Firebase (db) wujud
-    if (!studentInfo || !studentInfo.name || typeof db === 'undefined') return;
+    // 1. CARI DATA PEMAIN DENGAN SELAMAT (Elak ReferenceError)
+    let player = null;
+    if (typeof studentInfo !== 'undefined' && studentInfo && studentInfo.name) {
+        player = studentInfo;
+    } else if (typeof localPlayerData !== 'undefined' && localPlayerData && localPlayerData.name) {
+        player = localPlayerData;
+    }
+
+    // 2. Pastikan data murid ada dan Firebase (db) wujud
+    if (!player || typeof db === 'undefined') return;
     
-    // Elakkan Game Master/Admin dari masuk senarai
-    if (studentInfo.name === "SUPER ADMIN" || studentInfo.class === "ADMIN") return;
+    // 3. Elakkan Game Master/Admin dari masuk senarai
+    if (player.name === "SUPER ADMIN" || player.class === "ADMIN") return;
 
     try {
-        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
-        const userRef = db.collection('players').doc(docId); 
-        await userRef.update({
+        const docId = `${player.school}_${player.class}_${player.name}`.replace(/\s+/g, '_');
+        const userRef = db.collection('players').doc(docId);
+        
+        // Sediakan data untuk dikemaskini
+        let updateData = {
             isOnline: status,
             lastActive: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+
+        // 🔥 TAMBAHAN KHAS PVP: Jika offline, tukar status PvP kepada 'offline'
+        if (status === false) {
+            updateData.currentStatus = "offline";
+        } else {
+            // Jika online balik, jadikan 'idle' supaya boleh dicabar semula
+            updateData.currentStatus = "idle";
+        }
+
+        // Guna .set({ ... }, { merge: true }) lebih selamat jika data murid belum wujud di koleksi 'players'
+        await userRef.set(updateData, { merge: true });
     } catch (error) {
         console.log("Ralat kemaskini status online:", error);
     }
@@ -911,7 +882,8 @@ async function setMyOnlineStatus(status) {
 let unreadChats = []; 
 
 function listenForNotifications() {
-    if (!studentInfo) return;
+    // 🔥 Guna typeof untuk elak ReferenceError!
+    if (typeof studentInfo === 'undefined' || !studentInfo || !studentInfo.name) return;
 
     db.collection('chats')
       .where('unreadFor', '==', studentInfo.name)
@@ -926,16 +898,37 @@ function listenForNotifications() {
               }
           });
           
-          // Debugging: Buka "Inspect Element > Console" untuk lihat jika radar ini berfungsi
+          // Debugging: Buka "Inspect Element > Console" untuk lihat radar ini berfungsi
           console.log("Mesej belum dibaca dari:", unreadChats);
           
-// GANTIKAN BAHAGIAN INI:
           // Paksa senarai 'Active Players' dilukis semula dengan kemaskini status kita
           if (typeof setMyOnlineStatus === "function") {
               setMyOnlineStatus(true); 
           }
       });
 }
+
+// ==========================================
+// 🔥 TAMBAHAN: AUTO-DETECT BROWSER BUKA / TUTUP 🔥
+// ==========================================
+
+// Paksa sistem beritahu Firestore kita sedang online bila web dibuka
+window.addEventListener('load', () => {
+    // Beri masa 2 saat untuk pastikan data profil siap dibaca
+    setTimeout(() => {
+        if (typeof setMyOnlineStatus === 'function') {
+            setMyOnlineStatus(true);
+            console.log("📡 Isyarat dihantar: Pemain kini ONLINE!");
+        }
+    }, 2000);
+});
+
+// Beritahu Firestore kita offline BILA tab browser ditutup atau direfresh
+window.addEventListener('beforeunload', () => {
+    if (typeof setMyOnlineStatus === 'function') {
+        setMyOnlineStatus(false);
+    }
+});
 
 function listenToActivePlayers() {
     if (typeof db === 'undefined' || !studentInfo) return;
@@ -1251,3 +1244,24 @@ function toggleChatMinimize() {
         minimizeBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
     }
 }
+
+// ==========================================
+// 13. PENGESAN TUTUP BROWSER & TUKAR TAB (AUTO-LOGOUT PVP)
+// ==========================================
+
+// 1. Pengesan apabila murid PANGKAH / TUTUP TAB browser
+window.addEventListener('beforeunload', function () {
+    // Hantar isyarat "Offline" secara terus sebelum browser terpadam
+    setMyOnlineStatus(false);
+});
+
+// 2. Pengesan apabila murid MINIMIZE atau TUKAR TAB (Khas untuk Tablet/Telefon)
+window.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        // Tab sedang disembunyikan / pemain buka app lain -> Set Offline & Hilangkan dari senarai PvP
+        setMyOnlineStatus(false);
+    } else if (document.visibilityState === 'visible') {
+        // Pemain kembali semula ke tab game -> Set Online & Idle semula
+        setMyOnlineStatus(true);
+    }
+});

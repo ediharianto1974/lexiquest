@@ -130,14 +130,22 @@ function initGame(type) {
     const playerName = localPlayerData.passcode || localPlayerData.name || "guest";
     const userKey = "memoriPemain_" + playerName;
 
-// ==========================================
-    // 🟢 KEMAS KINI STATUS FIREBASE KE "IN-GAME"
     // ==========================================
-    if (typeof studentInfo !== 'undefined' && studentInfo.name) {
-        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+    // 🟢 KEMAS KINI STATUS FIREBASE KE "IN-GAME" (VERSI SELAMAT)
+    // ==========================================
+    let player = null;
+    if (typeof studentInfo !== 'undefined' && studentInfo && studentInfo.name) {
+        player = studentInfo;
+    } else if (typeof localPlayerData !== 'undefined' && localPlayerData && localPlayerData.name) {
+        player = localPlayerData;
+    }
+
+    if (player && typeof db !== 'undefined') {
+        const docId = `${player.school}_${player.class}_${player.name}`.replace(/\s+/g, '_');
         db.collection("players").doc(docId).set({
             isOnline: true,
-            currentStatus: "in-game"
+            currentStatus: "in-game",
+            lastActive: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true }).catch(e => console.log("Gagal kemaskini status in-game:", e));
     }
     // ==========================================
@@ -209,7 +217,7 @@ function initGame(type) {
     }
     allQuestions.sort(() => Math.random() - 0.5);
 
-    allQuestions.forEach((item, index) => {
+allQuestions.forEach((item, index) => {
         const div = document.createElement('div');
         div.className = "bg-white p-5 rounded-2xl border-l-4 border-indigo-400 shadow-sm";
         
@@ -233,8 +241,8 @@ function initGame(type) {
         container.appendChild(div);
     });
 
-// ==========================================
-    // TAMBAHKAN KOD MASA INI DI SINI
+    // ==========================================
+    // KOD MASA INI MESTI BERADA DI DALAM FUNGSI initGame
     // ==========================================
     let timeLimit = 180; // Default: Easy = 3 minit (180 saat)
     
@@ -247,14 +255,13 @@ function initGame(type) {
 
     startTimer(timeLimit); // INI YANG AKAN MENGGERAKKAN JAM!
 
-}
+} // <--- INI SAHAJA PENUTUP UNTUK FUNGSI initGame()
 
 // ==========================================
 // 2. KAWALAN MASA & MARKAH
 // ==========================================
-
-let currentTimer; // <-- TAMBAH INI
-let timeLeft;     // <-- TAMBAH INI
+let currentTimer; 
+let timeLeft;
 
 function startTimer(seconds) {
     console.log("🕒 Sistem cuba mulakan jam: " + seconds + " saat"); // Pengesan 1
@@ -299,7 +306,7 @@ function timeUp() {
     Swal.fire({
         icon: 'warning',
         title: "TIME'S UP! ⏳",
-        text: "Masa telah tamat. Jom semak markah anda!",
+        text: "Times Up. Let's check your score!",
         confirmButtonText: "Semak Markah",
         confirmButtonColor: "#ef4444",
         allowOutsideClick: false
@@ -322,331 +329,190 @@ function updateCategoryProgress() {
 }
 
 // ==========================================
-// 3. LEADERBOARD (VERSI FIREBASE)
+// 3. LEADERBOARD (VERSI KHAS SEKOLAH & AVATAR LENGKAP)
 // ==========================================
-async function showLeaderboard() {
+async function loadLeaderboard() {
+    // Navigasi Skrin
     document.getElementById('menu-screen').classList.add('hidden');
     document.getElementById('game-arena').classList.add('hidden');
     document.getElementById('leaderboard-screen').classList.remove('hidden');
     
-    const body = document.getElementById('leaderboard-body');
-    body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-indigo-500 font-bold animate-pulse'><i class='fas fa-spinner fa-spin mr-2'></i> Memuat turun Papan Pendahulu Live...</td></tr>";
+    const listContainer = document.getElementById('leaderboard-list');
+    const lbSchoolName = document.getElementById('lb-school-name');
+    
+    // Kenalpasti pemain semasa dan sekolah
+    const infoPemain = (typeof studentInfo !== 'undefined') ? studentInfo : (typeof localPlayerData !== 'undefined' ? localPlayerData : null);
+    const mySchool = infoPemain ? infoPemain.school : "";
+
+    if (lbSchoolName) lbSchoolName.innerText = `School: ${mySchool || 'Global'}`;
+    
+    if (listContainer) {
+        listContainer.innerHTML = `
+            <div class='p-12 text-center text-indigo-500 font-bold animate-pulse'>
+                <i class='fas fa-shield-alt fa-spin text-4xl mb-4 block'></i>
+                Menyusun Kedudukan Sekolah...
+            </div>`;
+    }
 
     try {
-        // Tarik data pemain dari Firestore ('players' collection) dan susun mengikut totalScore tertinggi
-        const snapshot = await db.collection("players")
-                                 .orderBy("totalScore", "desc")
-                                 .limit(50) // Ambil Top 50 sahaja
-                                 .get();
+        // --- TAPISAN SEKOLAH (PENTING) ---
+        let query = db.collection("players");
+        if (mySchool) {
+            query = query.where("school", "==", mySchool);
+        }
+
+        const snapshot = await query.get();
         
         if(snapshot.empty) {
-            body.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-gray-400'>Belum ada rekod. Jadilah yang pertama bermain!</td></tr>";
+            listContainer.innerHTML = "<div class='p-8 text-center text-gray-400 font-bold'>Tiada rekod untuk sekolah ini.</div>";
             return;
         }
 
+        // --- MASUKKAN DALAM ARRAY & BUANG ADMIN ---
+        let players = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.class !== "ADMIN") { 
+                players.push(data);
+            }
+        });
+
+        // --- SUSUN MENGIKUT MARKAH (SORT) ---
+        players.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0));
+
         let allRowsHTML = "";
         let index = 0;
-        const currentPlayerName = (typeof localPlayerData !== 'undefined' && localPlayerData && localPlayerData.name) 
-                                  ? String(localPlayerData.name).toUpperCase() 
-                                  : "";
+        const currentPlayerName = infoPemain ? String(infoPemain.name).toUpperCase() : "";
 
-        snapshot.forEach(doc => {
-            const student = doc.data();
+        // Loop untuk Top 50 Sahaja
+        players.slice(0, 50).forEach(student => {
             index++;
             
-            // Format Asas
+            // --- 1. DATA ASAS ---
             const safeName = student.name ? String(student.name).toUpperCase() : "GUEST";
             const safeCls = student.class || "-";
             const grandScore = student.totalScore || 0;
-            const studentLevel = student.level || 1;
+            const studentLevel = student.level || 1; 
             
-            // 1. KEDUDUKAN (RANK)
             let currentRank = index;
             let rankIcon = `#${index}`;
             if(index === 1) rankIcon = `🥇`;
-            if(index === 2) rankIcon = `🥈`;
-            if(index === 3) rankIcon = `🥉`;
-            
-            if (currentPlayerName !== "" && safeName === currentPlayerName) {
-                if (typeof checkLeaderboardAchievements === 'function') {
-                    checkLeaderboardAchievements(currentRank);
+            else if(index === 2) rankIcon = `🥈`;
+            else if(index === 3) rankIcon = `🥉`;
+
+            const isMe = (currentPlayerName !== "" && safeName === currentPlayerName);
+
+            // 🔥 TRACKER
+            if (isMe) {
+                if (window.Trackers && typeof window.Trackers.rekodKedudukanLeaderboard === 'function') {
+                    window.Trackers.rekodKedudukanLeaderboard(currentRank);
                 }
             }
 
-// 2. AVATAR (SELARAS DENGAN DASHBOARD)
-            let avatarHtml = "";
-            let avatarData = student.activeAvatar;
+            // --- 2. LOGIK AVATAR ---
+            let visualContent = `<span class="text-xl md:text-3xl text-gray-400">👤</span>`;
+            let avatarData = student.activeAvatar || student.avatar;
 
-            // Logik penentuan rupa avatar
-            let visualContent = "";
-            
-            if (avatarData) {
-                // Jika formatnya objek (seperti dalam Dashboard cikgu)
-                if (typeof avatarData === 'object' && avatarData.img) {
-                    visualContent = `<img src="${avatarData.img}" class="w-full h-full object-contain">`;
-                } 
-                // Jika formatnya string URL (dengan atau tanpa prefix img|)
-                else if (typeof avatarData === 'string') {
-                    let url = avatarData.replace('img|', '');
-                    visualContent = `<img src="${url}" class="w-full h-full object-contain" onerror="this.parentElement.innerHTML='👤'">`;
+            if (avatarData && typeof avatarData === 'string') {
+                if (avatarData.startsWith('img|')) {
+                    const cleanPath = avatarData.replace('img|', '').trim();
+                    visualContent = `<img src="${cleanPath}" class="w-[85%] h-[85%] object-contain drop-shadow-md" onerror="this.parentElement.innerHTML='<span class=\\'text-xl md:text-3xl\\'>👤</span>'">`;
+                } else if (avatarData.startsWith('icon|')) {
+                    const iconName = avatarData.replace('icon|', '').trim();
+                    visualContent = `<i class="${iconName} text-2xl text-indigo-500"></i>`;
+                } else {
+                    visualContent = `<span class="text-xl md:text-3xl">${avatarData}</span>`;
                 }
-                // Jika formatnya ikon emoji/teks
-                else if (avatarData.icon || typeof avatarData === 'string') {
-                    visualContent = `<span class="text-xl">${avatarData.icon || avatarData}</span>`;
-                }
-            } else {
-                visualContent = `<span class="text-xl text-gray-400">👤</span>`;
             }
 
-            avatarHtml = `
-                <div class="flex flex-col items-center justify-center p-2">
-                    <div class="relative flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-gradient-to-b from-indigo-50 to-white rounded-xl border-2 border-indigo-100 shadow-sm overflow-visible">
-                        ${visualContent}
-                        
-                        <div class="absolute -bottom-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md border border-white shadow-sm z-10">
-                            LVL ${studentLevel}
-                        </div>
+            const avatarHtml = `
+                <div class="relative flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-gradient-to-b from-white to-indigo-50 rounded-xl border-2 ${isMe ? 'border-yellow-400' : 'border-indigo-100'} shadow-sm shrink-0">
+                    ${visualContent}
+                    <div class="absolute -bottom-2 -right-2 bg-gradient-to-r from-green-500 to-green-600 text-white text-[9px] md:text-[10px] font-black px-1.5 py-0.5 rounded-md border-2 border-white shadow-sm z-10">
+                        LVL ${studentLevel}
                     </div>
                 </div>`;
 
-            // 3. GELARAN KARAKTER (TITLE)
+            // --- 3. LOGIK TITLE ---
             const titleName = String(student.activeTitle || "Novice");
-            const rawAchievements = (typeof achievementsData !== 'undefined') ? achievementsData : [];
-            const titleData = rawAchievements.find(ach => ach.name === titleName);
-            const tier = titleData ? titleData.tier : 'common';
-            const achId = titleData ? titleData.id : ''; 
-            
-            let titleHTML = "";
             const upperTitle = titleName.toUpperCase();
+            let titleHTML = "";
 
-            if (achId === 'ach_16') titleHTML = `<div class="title-king inline-block mt-1">👑 ${upperTitle}</div>`;
-            else if (achId === 'ach_15') titleHTML = `<div class="title-legendary-beast inline-block mt-1">👾 ${upperTitle}</div>`;
-            else if (achId === 'ach_08') titleHTML = `<div class="title-master inline-block mt-1">🔥 ${upperTitle}</div>`;
-            else if (tier === 'legendary') titleHTML = `<div class="title-legendary inline-block mt-1">🏆 ${upperTitle}</div>`;
-            else if (tier === 'epic') titleHTML = `<div class="title-epic text-[10px] md:text-xs inline-block mt-1">✨ ${upperTitle}</div>`;
-            else if (tier === 'rare') titleHTML = `<div class="title-rare text-[10px] md:text-xs inline-block mt-1">⭐ ${upperTitle}</div>`;
-            else titleHTML = `<div class="title-common text-[10px] md:text-xs inline-block mt-1">${upperTitle}</div>`;
+            const rawAchievements = (typeof achievementsData !== 'undefined') ? achievementsData : [];
+            const tData = rawAchievements.find(ach => ach.name === titleName);
+            const tier = tData ? tData.tier : 'common';
+            const achId = tData ? tData.id : '';
 
-            // 4. TAJUK LEVEL
-            let studentLevelTitle = "Novice";
-            if (studentLevel >= 151) studentLevelTitle = "Transcendent";
-            else if (studentLevel >= 101) studentLevelTitle = "Omniscient";
-            else if (studentLevel >= 51) studentLevelTitle = "Adept";
-
-            let newLevelBadgeHTML = `<div class="mt-1 flex items-center gap-1 text-[11px] md:text-sm font-semibold text-pink-600"><i class="fas fa-certificate"></i> Lv.${studentLevel} ${studentLevelTitle}</div>`;
-
-            // 5. LENCANA PERMAINAN (Games Played)
-            let gamesBadgesHtml = "";
-            if (student.games) {
-                gamesBadgesHtml = Object.entries(student.games).map(([gameName, score]) => {
-                    return `<span class="inline-block bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] md:text-xs px-2 py-1 rounded-md m-0.5 font-semibold capitalize">${gameName}: <span class="text-green-600">${score}</span></span>`;
-                }).join('');
+            if (achId === 'ach_16' || upperTitle.includes('MASTER')) {
+                titleHTML = `<span class="bg-yellow-100 text-yellow-800 border border-yellow-300 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold">👑 ${upperTitle}</span>`;
+            } else if (tier === 'legendary') {
+                titleHTML = `<span class="bg-orange-100 text-orange-800 border border-orange-300 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold">🏆 ${upperTitle}</span>`;
+            } else if (tier === 'epic') {
+                titleHTML = `<span class="bg-purple-100 text-purple-800 border border-purple-300 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold">✨ ${upperTitle}</span>`;
+            } else if (tier === 'rare') {
+                titleHTML = `<span class="bg-blue-100 text-blue-800 border border-blue-300 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold">⭐ ${upperTitle}</span>`;
             } else {
-                gamesBadgesHtml = `<span class="text-xs text-gray-400 italic">Belum memulakan permainan</span>`;
+                titleHTML = `<span class="bg-slate-100 text-slate-600 border border-slate-200 text-[9px] md:text-[10px] px-2 py-0.5 rounded-full font-bold">${upperTitle}</span>`;
             }
 
-            // 6. MARKAH KESELURUHAN (XP)
-            const totalHtmlRes = `<span class="bg-indigo-600 text-white px-2 py-1 md:px-3 md:py-1 rounded-full font-bold shadow-md text-xs md:text-base whitespace-nowrap">${grandScore} XP</span>`;
+            // --- 4. LENCANA SKOR PERMAINAN ---
+            let gamesBadgesHtml = "";
+            if (student.games && typeof student.games === 'object') {
+                gamesBadgesHtml = Object.entries(student.games)
+                    .filter(([_, score]) => score > 0)
+                    .map(([gName, gScore]) => {
+                        return `<span class="inline-block bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] px-1.5 py-0.5 rounded font-bold mr-1 mb-1 uppercase">${gName}: ${gScore}</span>`;
+                    }).join('');
+            }
 
-            // 7. BINA BARIS JADUAL
+            // --- 5. PEMBINAAN BARIS ---
             const row = `
-                <tr class="border-b-2 border-indigo-100 hover:bg-gray-50 transition">
-                    <td class="p-2 md:p-4 font-bold text-indigo-600 text-sm md:text-xl text-center align-middle">${rankIcon}</td>
-                    <td class="p-1 md:p-2 w-12 md:w-24 align-middle">${avatarHtml}</td>
-                    <td class="p-2 md:p-4 align-middle">
-                        <div class="font-black uppercase text-gray-800 text-xs md:text-lg">${safeName}</div>
-                        ${titleHTML}
-                        <br> ${newLevelBadgeHTML}
-                    </td>
-                    <td class="p-2 md:p-4 text-[10px] md:text-sm text-gray-500 text-center align-middle">${safeCls}</td>
-                    <td class="p-2 md:p-4 align-middle">
-                        <div class="flex flex-wrap gap-1 justify-start">
-                            ${gamesBadgesHtml}
+                <div class="flex items-center justify-between p-3 md:p-4 rounded-2xl border-2 transition-all duration-200 mb-3 
+                    ${isMe ? 'bg-yellow-50 border-yellow-200 shadow-md scale-[1.02]' : 'bg-white border-indigo-50 shadow-sm hover:border-indigo-200'}">
+                    
+                    <div class="flex items-center gap-3 md:gap-4">
+                        <div class="font-black ${isMe ? 'text-yellow-600' : 'text-indigo-300'} text-lg md:text-2xl w-6 md:w-8 text-center">
+                            ${rankIcon}
                         </div>
-                    </td>
-                    <td class="p-2 md:p-4 text-center align-middle">${totalHtmlRes}</td>
-                </tr>
+                        
+                        ${avatarHtml}
+                        
+                        <div class="flex flex-col">
+                            <div class="font-black uppercase text-slate-800 text-sm md:text-base leading-tight tracking-tight">
+                                ${safeName} ${isMe ? '<span class="text-[10px] text-yellow-600">(ANDA)</span>' : ''}
+                            </div>
+                            <div class="flex items-center gap-2 mt-1">
+                                ${titleHTML}
+                                <span class="text-[10px] font-bold text-slate-400 uppercase">• ${safeCls}</span>
+                            </div>
+                            <div class="flex flex-wrap mt-2 max-w-[200px] md:max-w-xs">
+                                ${gamesBadgesHtml || '<span class="text-[9px] text-slate-300 italic">Tiada data permainan</span>'}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="bg-indigo-600 text-white px-3 py-1.5 rounded-xl font-black shadow-sm text-sm md:text-base whitespace-nowrap">
+                            ${grandScore.toLocaleString()} <span class="text-[10px] font-normal opacity-80">XP</span>
+                        </div>
+                    </div>
+                </div>
             `;
-            allRowsHTML += row; 
+            allRowsHTML += row;
         });
 
-        body.innerHTML = allRowsHTML;
+        listContainer.innerHTML = allRowsHTML;
 
     } catch (error) {
         console.error("Leaderboard Error:", error);
-        body.innerHTML = `<tr><td colspan='6' class='p-8 text-center text-red-500 font-bold'><i class='fas fa-exclamation-triangle'></i> Ralat: ${error.message} <br> <span class='text-xs'>Sila refresh halaman.</span></td></tr>`;
+        listContainer.innerHTML = `
+            <div class='p-8 text-center text-red-500 font-bold'>
+                <i class='fas fa-exclamation-circle text-2xl mb-2'></i><br>
+                Ralat memuat turun data. Sila pastikan anda mempunyai sambungan internet.
+            </div>`;
     }
 }
 
-// ==========================================
-// 4. SISTEM CABARAN (MULTIPLAYER)
-// ==========================================
-function generateChallengeCode() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 4; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return '#C-' + result;
-}
-
-async function generateChallenge() {
-    const code = generateChallengeCode();
-    const scoreText = document.getElementById('score-val')?.innerText || "0/0";
-    
-    const payload = {
-        action: "createChallenge", challengeCode: code, challengerName: localPlayerData.name,
-        challengerClass: localPlayerData.class || "-", gameType: currentGameType, challengerScore: parseInt(scoreText.split('/')[0]) || 0
-    };
-    try {
-        await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-        alert("Challenge Code generated: " + code + "\nShare this code to your friend!");
-    } catch (e) {}
-}
-
-async function joinChallenge() {
-    const codeInput = document.getElementById('challenge-input-code')?.value.trim().toUpperCase();
-    if (!codeInput) return;
-    
-    try {
-        const response = await fetch(`${SCRIPT_URL}?action=getChallenge&code=${encodeURIComponent(codeInput)}`);
-        const data = await response.json();
-        if (data.error) { alert("Invalid code!"); return; }
-        
-        isChallengeMode = true; activeChallengeCode = codeInput;
-        targetScoreToBeat = data.challengerScore; activeChallengerName = data.challengerName;
-        
-        alert(`⚔️ CHALLENGE FOUND!\nOpponent: ${activeChallengerName}\nCategory: ${data.gameType.toUpperCase()}`);
-        initGame(data.gameType); 
-    } catch (e) {}
-}
-
-function checkChallengeReward(myScore) {
-    if (!isChallengeMode) return 0; 
-    let reward = 0;
-    if (myScore > targetScoreToBeat) { reward = 50; alert(`🏆 YOU'VE WON! Opponent: ${activeChallengerName}`); } 
-    else if (myScore === targetScoreToBeat) { reward = 20; alert(`🤝 SERI!`); } 
-    else alert(`💔 YOU'VE LOST!`);
-    
-    fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "completeChallenge", challengeCode: activeChallengeCode }) });
-    isChallengeMode = false; activeChallengeCode = null;
-    return reward;
-}
-
-// ==========================================
-// FUNGSI SERTAI CABARAN RAKAN
-// ==========================================
-async function promptJoinChallenge() {
-    const code = prompt("Please enter the Challenge Code:\n(Example: CHL-1234)");
-    
-    if (!code || code.trim() === "") return; 
-
-    const cleanCode = code.trim().toUpperCase();
-    console.log("Menyemak kod cabaran: " + cleanCode);
-
-    try {
-        // Hantar maklumat ke Google Sheets secara POST
-        const payload = {
-            action: "getChallenge",
-            challengeCode: cleanCode
-        };
-
-        // Pastikan SCRIPT_URL anda telah didefinasikan di bahagian atas fail JS
-        const response = await fetch(SCRIPT_URL, {
-            method: "POST",
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-
-        // Semak respon
-        if (data.error) {
-            alert("❌ GAGAL: " + data.error);
-        } else {
-            alert(`🔥 CHALLENGE FOUND!\n\nOpponet: ${data.challengerName} (${data.challengerClass})\nCategory: ${data.gameType}\nScore to beat: ${data.challengerScore}\n\nGood Luck!`);
-
-            // Simpan data cabaran dalam memori untuk dibandingkan lepas habis game
-            window.currentActiveChallenge = {
-                code: cleanCode,
-                challengerName: data.challengerName,
-                gameType: data.gameType,
-                targetScore: data.challengerScore
-            };
-
-            // MULA PERMAINAN MENGGUNAKAN initGame
-            if (typeof initGame === 'function') {
-                // Sembunyikan menu utama (jika perlu) sebelum mula game
-                const menuScreen = document.getElementById('menu-screen');
-                if (menuScreen) menuScreen.classList.add('hidden');
-                
-                // Mula game mengikut kategori cabaran
-                initGame(data.gameType);
-            } else {
-                alert("Ralat: Fungsi initGame tidak dijumpai dalam sistem.");
-            }
-        }
-
-    } catch (error) {
-        console.error("Ralat Rangkaian:", error);
-        alert("Connection error. Please make sure your internet is stable and try again.");
-    }
-}
-
-// ==========================================
-// FUNGSI SEMAK RESULT CABARAN (GAME OVER)
-// ==========================================
-function checkAndCompleteChallenge(playerFinalScore) {
-    // 1. Semak adakah pemain sedang bermain dalam mod cabaran
-    if (!window.currentActiveChallenge) return;
-
-    const challenge = window.currentActiveChallenge;
-    const target = parseInt(challenge.targetScore);
-    const score = parseInt(playerFinalScore);
-
-    console.log(`Checking challenge: Your score ${score} vs Target score ${target}`);
-
-    if (score > target) {
-        // --- MENANG CABARAN ---
-        const rewardCoins = 50; // Jumlah syiling menang cabaran
-        
-        // Kemaskini data profil
-        localPlayerData.coins = (Number(localPlayerData.coins) || 0) + rewardCoins;
-        localPlayerData.challengesWon = (Number(localPlayerData.challengesWon) || 0) + 1;
-        
-        // Papar Notifikasi Menang
-        alert(`🎉 CONGRATULATION CHALLENGE COMPLETED!\n\nYou have beaten ${challenge.challengerName}!\nYour Score: ${score}\nTarget Score: ${target}\n\nReward: +${rewardCoins} Coins!`);
-
-        // Arahkan Google Sheets untuk "Tutup" (Completed) cabaran ini
-        try {
-            const payload = {
-                action: "completeChallenge",
-                challengeCode: challenge.code
-            };
-            fetch(SCRIPT_URL, {
-                method: "POST",
-                body: JSON.stringify(payload)
-            });
-        } catch (e) {
-            console.error("Gagal menutup cabaran di database", e);
-        }
-
-    } else if (score === target) {
-        // --- SERI ---
-        localPlayerData.challengesTied = (Number(localPlayerData.challengesTied) || 0) + 1;
-        alert(`🤝 CHALLENGE TIED!\n\nYour score is the same with ${challenge.challengerName} (${score}).\nPlease try again to beat the record!`);
-        
-    } else {
-        // --- KALAH ---
-        localPlayerData.challengesLost = (Number(localPlayerData.challengesLost) || 0) + 1;
-        alert(`💔 CHALLENGE FAILED!\n\nYou have not beaten ${challenge.challengerName}.\nYour Score: ${score}\nTarget Score: ${target}\n\nDon't give up, try again!`);
-    }
-
-    // 2. Padam memori cabaran supaya ia tak berulang kali dipanggil
-    window.currentActiveChallenge = null;
-    
-    // 3. Simpan perubahan (Coins & Stats) ke Cloud Database
-    if (typeof saveCloudPlayerData === 'function') {
-        saveCloudPlayerData();
-    }
-}
 
 /* ==========================================
    FUNGSI AUDIO UNTUK LISTENING GAME (WEB SPEECH API)
@@ -660,7 +526,7 @@ window.playAudio = function(wordToSay) {
         msg.rate = 0.85; // Diperlahankan sedikit supaya murid dengar dengan jelas
         window.speechSynthesis.speak(msg);
     } else {
-        alert("Maaf, pelayar (browser) peranti ini tidak menyokong fungsi audio.");
+        alert("Sorry, this browser (device) did not support audio function.");
     }
 };
 
@@ -670,7 +536,7 @@ window.playAudio = function(wordToSay) {
 window.startMic = function(btnElement) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        alert("Sila gunakan Google Chrome untuk ciri Mikrofon.");
+        alert("Please use Google Chrome for microphone function.");
         return;
     }
 
@@ -681,7 +547,7 @@ window.startMic = function(btnElement) {
     const wordElement = parentDiv.querySelector('.target-word') || parentDiv.querySelector('h1');
     
     if (!wordElement) {
-        alert("Ralat Sistem: Tidak dapat mengesan teks soalan di skrin.");
+        alert("System Error: Can't detect question text on the screen.");
         return;
     }
 
@@ -775,15 +641,18 @@ function endGame() {
     const checkBtn = document.getElementById('check-btn');
     if (checkBtn) checkBtn.classList.add('hidden');
 
-    // 2. Semak setiap jawapan murid
+// 2. Semak setiap jawapan murid
     inputs.forEach(input => {
         input.disabled = true; // Kunci kotak supaya tak boleh diubah lagi
         
-        // Ambil jawapan murid dan jawapan sebenar (huruf kecil supaya tidak sensitif huruf besar)
+        // Ambil jawapan murid dan jawapan sebenar
         const userAnswer = input.value.trim().toLowerCase();
-        const correctAnswer = input.getAttribute('data-answer').trim().toLowerCase();
+        
+        // POTONG JAWAPAN MENGGUNAKAN "|" UNTUK MENJADI SENARAI
+        const correctAnswersList = input.getAttribute('data-answer').trim().toLowerCase().split("|");
 
-        if (userAnswer === correctAnswer && userAnswer !== "") {
+        // SEMAK JIKA JAWAPAN MURID ADA DALAM SENARAI
+        if (correctAnswersList.includes(userAnswer) && userAnswer !== "") {
             // Jika BETUL: Warna hijau
             score++;
             input.classList.remove('bg-gray-50', 'border-gray-200');
@@ -831,6 +700,13 @@ function endGame() {
         
         // 💰 TAMBAH KOIN KE DALAM PANGKALAN DATA!
         localPlayerData.coins = (parseInt(localPlayerData.coins) || 0) + coinsEarned;
+
+// 🔥 TAMBAH KOD INI DI SINI (SEBELUM SAVE) 🔥
+    const todayDay = new Date().getDay();
+    if (todayDay === 0 || todayDay === 6) { // 0 = Ahad, 6 = Sabtu
+        localPlayerData.hasPlayedWeekend = true;
+        console.log("Hujung minggu dikesan! hasPlayedWeekend ditetapkan ke true.");
+    }
         
         // ==========================================
         // 🎥 CCTV TRACKER: REKOD TAMAT GAME & KOIN
@@ -1290,27 +1166,56 @@ function applyAnalysisFilters() {
     }
 }
 
-// 1. Fungsi Semak Kelayakan (Mangga Kunci)
-function checkChallengeEligibility() {
+// ==========================================
+// FUNGSI KELAYAKAN CABARAN (ARENA PVP)
+// ==========================================
+
+// 1. Fungsi Semak Kelayakan Level
+window.checkChallengeEligibility = function() {
     const requiredLevel = 15;
     
+    // Pastikan data pemain telah dimuatkan
+    if (typeof localPlayerData === 'undefined' || !localPlayerData) {
+        alert("Sila tunggu sebentar, sedang memuat turun profil anda...");
+        return;
+    }
+    
+    // Semak tahap pemain
     if (localPlayerData.level < requiredLevel) {
         // Jika belum Level 15, tunjuk amaran
-        alert(`🔒 AKSES DITOLAK!\n\nAnda baru Level ${localPlayerData.level}. Teruskan berjuang di mod solo sehingga mencapai Level ${requiredLevel} untuk membuka Arena Cabaran PvP.`);
+        alert(`🔒 ACCESS DENIED!\n\nYou just level ${localPlayerData.level}. Keep playing in Solo Mode until you reach Level ${requiredLevel} to open Challenge Arena PVP.`);
         return; 
     }
     
     // Jika layak, buka skrin Lobi Cabaran dan muatkan pemain
-    showScreen('challenge-lobby-screen');
-    loadAvailableOpponents();
-}
+    if (typeof showScreen === 'function') {
+        showScreen('challenge-lobby-screen');
+    } else {
+        console.warn("Fungsi showScreen tiada, menggunakan logik lalai...");
+        // Logik penyorok skrin manual jika showScreen tiada
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        const lobby = document.getElementById('challenge-lobby-screen');
+        if (lobby) lobby.classList.remove('hidden');
+    }
+
+    // Panggil fungsi memuatkan pemain
+    window.loadAvailableOpponents();
+};
 
 // 2. Fungsi Tarik Senarai Pemain Level 15+ dari Firebase
-async function loadAvailableOpponents() {
+window.loadAvailableOpponents = async function() {
     const listContainer = document.getElementById('available-players-list');
+    if (!listContainer) return;
+    
     listContainer.innerHTML = "<li class='text-center italic text-indigo-400 py-4'>⏳ Sedang mengimbas arena...</li>";
 
     try {
+        // Semak jika db (Firestore) sedia ada
+        if (typeof db === 'undefined') {
+            listContainer.innerHTML = "<li class='text-center text-red-500 py-4'>Pangkalan data terputus. Sila muat semula.</li>";
+            return;
+        }
+
         // Cari pemain yang Level 15 dan ke atas SAHAJA
         const snapshot = await db.collection("players")
                                  .where("level", ">=", 15)
@@ -1318,10 +1223,19 @@ async function loadAvailableOpponents() {
 
         let html = "";
         
+        // Elakkan ReferenceError dengan studentInfo
+        let myName = "";
+        if (typeof studentInfo !== 'undefined' && studentInfo && studentInfo.name) {
+            myName = studentInfo.name;
+        } else if (typeof localPlayerData !== 'undefined' && localPlayerData && localPlayerData.name) {
+            myName = localPlayerData.name;
+        }
+        
         snapshot.forEach(doc => {
             const opponent = doc.data();
 
-            if (opponent.name !== studentInfo.name) {
+            // Jangan tunjukkan diri sendiri dalam senarai cabaran
+            if (opponent.name !== myName) {
                 // --- BACA isOnline DARI SISTEM SEDIA ADA CIKGU ---
                 let isPlayerOnline = opponent.isOnline === true; 
                 let specificStatus = opponent.currentStatus || 'idle'; 
@@ -1335,15 +1249,15 @@ async function loadAvailableOpponents() {
                 if (isPlayerOnline) {
                     if (specificStatus === 'idle') {
                         dotColor = 'bg-green-500';
-                        statusLabel = 'Sedia (Idle)';
+                        statusLabel = 'Ready (Idle)';
                         btnDisabled = ''; // Buka kunci butang
                         btnClass = 'bg-red-500 hover:bg-red-600 text-white shadow-sm';
                     } else if (specificStatus === 'in-game') {
                         dotColor = 'bg-yellow-400';
-                        statusLabel = 'Sibuk (In-Game)';
+                        statusLabel = 'Busy (In-Game)';
                     } else if (specificStatus === 'in-pvp') {
                         dotColor = 'bg-red-600';
-                        statusLabel = 'Bertarung (PvP)';
+                        statusLabel = 'In Battle (PvP)';
                     }
                 }
 
@@ -1351,7 +1265,7 @@ async function loadAvailableOpponents() {
                     <li class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border hover:border-red-300 hover:shadow-md transition-all">
                         <div class="flex items-center gap-4">
                             <div class="relative w-12 h-12 bg-red-100 rounded-full flex items-center justify-center font-black text-red-500 text-xl shadow-inner">
-                                L${opponent.level}
+                                L${opponent.level || 15}
                                 <span class="absolute bottom-0 right-0 w-3.5 h-3.5 ${dotColor} border-2 border-white rounded-full"></span>
                             </div>
                             <div>
@@ -1360,7 +1274,7 @@ async function loadAvailableOpponents() {
                             </div>
                         </div>
                         <button onclick="sendChallengeInvite('${opponent.name}')" ${btnDisabled} class="${btnClass} px-6 py-2 rounded-lg font-bold transition-colors">
-                            ⚔️ CABAR
+                            ⚔️ CHALLENGE
                         </button>
                     </li>
                 `;
@@ -1377,34 +1291,77 @@ async function loadAvailableOpponents() {
         console.error("Ralat memuatkan lawan:", error);
         listContainer.innerHTML = "<li class='text-center text-red-500 py-4'>Ralat menyambung ke pelayan arena.</li>";
     }
-}
+};
 
 // 3. Fungsi Sementara untuk Butang Cabar
 // (Nota: Boleh dibuang jika fungsi async di bawah sudah digunakan, tapi saya kekalkan agar kod tak berubah)
 function sendChallengeInvite_old(opponentName) {
-    alert(`Sistem sedang menjana bilik perlawanan untuk anda dan ${opponentName}. (Logik Firebase akan dimasukkan di sini seterusnya!)`);
+    alert(`System is generating the Lobby Room for you and ${opponentName}. (Logik Firebase akan dimasukkan di sini seterusnya!)`);
 }
 
 // ==========================================
-// ==========================================
-// A. PENGHANTAR: Fungsi Hantar Jemputan & Had Harian
+// A. PENGHANTAR: Fungsi Hantar Jemputan & Had Harian & SYARAT KELAYAKAN (ENGLISH ALERTS)
 // ==========================================
 window.sendChallengeInvite = async function(opponentName) {
+    // ---------------------------------------------------------
+    // 🛑 1. SARINGAN KELAYAKAN (LEVEL 15 & KATEGORI EASY/MED/HARD)
+    // ---------------------------------------------------------
+    
+    // Semak Level
+    const currentLevel = Number(localPlayerData.level) || 1;
+    if (currentLevel < 15) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Access Denied!',
+            text: 'You must reach at least Level 15 to challenge other players in the PvP Arena.'
+        });
+        return;
+    }
+
+    // Semak Penguasaan Kategori
+    let playedGames = localPlayerData.playedGamesList || [];
+    let hasEasy = false, hasMed = false, hasHard = false;
+
+    // Gunakan categoryDifficulty yang sedia ada di atas fail game.js
+    playedGames.forEach(gameKey => {
+        const cat = gameKey.toLowerCase();
+        if (categoryDifficulty.easy.includes(cat)) hasEasy = true;
+        if (categoryDifficulty.medium.includes(cat)) hasMed = true;
+        if (categoryDifficulty.hard.includes(cat)) hasHard = true;
+    });
+
+    if (!hasEasy || !hasMed || !hasHard) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Requirements Not Met!',
+            html: `To enter the PvP Arena, you must have played at least 1 game from each difficulty tier (Easy, Medium & Hard).<br><br>
+                   Your Current Progress:<br>
+                   ✅ Easy: ${hasEasy ? 'Completed' : '<b>Incomplete</b>'}<br>
+                   ✅ Medium: ${hasMed ? 'Completed' : '<b>Incomplete</b>'}<br>
+                   ✅ Hard: ${hasHard ? 'Completed' : '<b>Incomplete</b>'}`
+        });
+        return; // Halang terus
+    }
+
+    // ---------------------------------------------------------
+    // JIKA LULUS SARINGAN, TERUSKAN LOGIK SEPERTI BIASA
+    // ---------------------------------------------------------
+
     const today = new Date().toISOString().split('T')[0];
     const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
 
     try {
-        // 1. SEMAK HAD HARIAN (Maksimum 10 kali sehari)
+        // 2. SEMAK HAD HARIAN (Maksimum 5 kali sehari)
         const playerDoc = await db.collection("players").doc(docId).get();
         if (playerDoc.exists) {
             const data = playerDoc.data();
-            if (data.lastPvPDate === today && data.pvpCountToday >= 10) {
-                Swal.fire('Had Dicapai 🛑', 'Anda telah mencapai maksimum 10 perlawanan PvP hari ini. Sila sambung esok!', 'warning');
+            if (data.lastPvPDate === today && data.pvpCountToday >= 5) {
+                Swal.fire('Daily Limit Reached 🛑', 'You have reached the maximum limit of 5 PvP matches today. Please come back tomorrow!', 'warning');
                 return; // Halang dari mencabar
             }
         }
 
-        // 2. BINA SENARAI KATEGORI (Dari data.js)
+        // 3. BINA SENARAI KATEGORI (Dari data.js)
         let dynamicCategoryOptions = {};
         for (let key in gameData) {
             let displayName = key.charAt(0).toUpperCase() + key.slice(1);
@@ -1412,18 +1369,19 @@ window.sendChallengeInvite = async function(opponentName) {
         }
 
         const { value: category } = await Swal.fire({
-            title: `Cabar ${opponentName}`,
-            text: "Pilih kategori untuk perlawanan ini:",
+            title: `Challenge ${opponentName}`,
+            text: "Select a category for this match:",
             input: 'select',
             inputOptions: dynamicCategoryOptions,
             showCancelButton: true,
             confirmButtonColor: '#ef4444',
-            confirmButtonText: 'HANTAR CABARAN ⚔️'
+            cancelButtonText: 'Cancel',
+            confirmButtonText: 'SEND CHALLENGE ⚔️'
         });
 
         if (!category) return;
 
-        // 3. HANTAR CABARAN KE FIREBASE
+        // 4. HANTAR CABARAN KE FIREBASE
         const challengeRef = db.collection("challenges").doc();
         await challengeRef.set({
             challengerName: studentInfo.name,
@@ -1440,22 +1398,22 @@ window.sendChallengeInvite = async function(opponentName) {
             Trackers.rekodHantarCabaran();
         }
 
-        Swal.fire({ title: 'Berjaya!', text: `Menunggu ${opponentName}...`, icon: 'success', showConfirmButton: false });
+        Swal.fire({ title: 'Success!', text: `Waiting for ${opponentName} to accept...`, icon: 'success', showConfirmButton: false });
 
         const unsubscribe = challengeRef.onSnapshot(doc => {
             if (!doc.exists) return;
             const data = doc.data();
             if (data.status === "accepted") {
                 unsubscribe();
-                Swal.fire({ title: 'Diterima!', text: `Sedia untuk bertempur!`, icon: 'success', timer: 2000, showConfirmButton: false });
+                Swal.fire({ title: 'Accepted!', text: `Get ready for battle!`, icon: 'success', timer: 2000, showConfirmButton: false });
                 setTimeout(() => startPvPMatch(doc.id, data), 2000);
             } else if (data.status === "declined") {
                 unsubscribe();
-                Swal.fire('Ditolak', `${opponentName} sibuk atau menolak cabaran.`, 'error');
+                Swal.fire('Declined', `${opponentName} is currently busy or declined the challenge.`, 'error');
             }
         });
     } catch (error) {
-        console.error("Ralat jemputan:", error);
+        console.error("Error sending invite:", error);
     }
 };
 
@@ -1554,13 +1512,13 @@ function startPvPMatch(challengeId, challengeData) {
     // Reset markah dan soalan
     document.getElementById('pvp-p1-score').innerText = "0";
     document.getElementById('pvp-p2-score').innerText = "0";
-    document.getElementById('pvp-question-display').innerText = "BERSEDIA...";
+    document.getElementById('pvp-question-display').innerText = "READY...";
     
     // 2. Paparkan Kiraan Detik 5 Saat menggunakan SweetAlert
     let timerInterval;
     Swal.fire({
         title: '🔥 PERTEMPURAN BERMULA! 🔥',
-        html: `Menuju ke arena dalam <b>5</b> saat...<br><br><small class="text-gray-500">Sila sedia di papan kekunci anda!</small>`,
+        html: `Menuju ke arena dalam <b>5</b> saat...<br><br><small class="text-gray-500">Get ready on you keyboard!</small>`,
         icon: 'info',
         timer: 5000,
         timerProgressBar: true,
@@ -1874,4 +1832,1188 @@ if (pvpAnswerInput) {
             });
         }
     });
+}
+
+// ==========================================
+// LANGKAH 1: SENARAI LOBI & BINA LOBI BAHARU (DIKEMASKINI)
+// ==========================================
+
+// Variabel penting untuk simpan ID lobi yang sedang kita main
+let currentLobbyId = ""; 
+let pantauLobiUnsubscribe = null;
+
+// Fungsi butang Mod 3v3 dari Menu Utama
+async function check3v3Access() {
+    console.log("Data Murid Sekarang:", studentInfo);
+    
+    // 1. Semak log masuk
+    if (typeof studentInfo === 'undefined' || !studentInfo.name) {
+        Swal.fire('Oops!', 'Please log in or register your name first.', 'warning');
+        return;
+    }
+
+    // 🛑 2. SARINGAN KELAYAKAN (LEVEL 35+)
+    const currentLevel = Number(localPlayerData.level) || 1;
+    if (currentLevel < 35) {
+        Swal.fire({
+            title: 'Access Denied!',
+            text: 'The 3v3 Arena is an Elite Zone. You need to reach at least Level 35 to enter!',
+            icon: 'error'
+        });
+        return;
+    }
+
+    // 🛑 3. SARINGAN PERFECT SCORES (KATEGORI EASY/MED/HARD)
+    let perfectGames = localPlayerData.perfectScoreGamesList || [];
+    let countEasy = 0, countMed = 0, countHard = 0;
+
+    // Gunakan categoryDifficulty dari bahagian atas fail game.js
+    perfectGames.forEach(gameKey => {
+        const cat = gameKey.toLowerCase();
+        if (categoryDifficulty.easy.includes(cat)) countEasy++;
+        if (categoryDifficulty.medium.includes(cat)) countMed++;
+        if (categoryDifficulty.hard.includes(cat)) countHard++;
+    });
+
+    if (countEasy < 3 || countMed < 2 || countHard < 1) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Not Elite Enough!',
+            html: `To enter the 3v3 Arena, you must prove your mastery by achieving a <b>Perfect Score (100)</b> in specific categories.<br><br>
+                   Your Perfect Score Progress:<br>
+                   🟢 Easy Categories: ${countEasy}/3<br>
+                   🟡 Medium Categories: ${countMed}/2<br>
+                   🔴 Hard Categories: ${countHard}/1<br><br>
+                   <small class="text-gray-500">Keep practicing in the main syllabus to unlock the Arena!</small>`,
+            confirmButtonText: "I'll Practice More"
+        });
+        return; // Halang terus
+    }
+
+    // 🛑 4. SEMAK HAD HARIAN (MAKSIMUM 2 KALI SEHARI)
+    const today = new Date().toISOString().split('T')[0];
+    const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+    
+    try {
+        const playerDoc = await db.collection("players").doc(docId).get();
+        if (playerDoc.exists) {
+            const data = playerDoc.data();
+            if (data.lastArena3v3Date === today && (data.arena3v3CountToday || 0) >= 2) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Daily Limit Reached 🛑',
+                    text: 'You have played the maximum limit of 2 Arena matches today. Your warriors are tired. Please come back tomorrow!'
+                });
+                return; // Halang masuk
+            }
+        }
+    } catch (error) {
+        console.error("Error checking daily limits:", error);
+        // Teruskan jika error membaca DB supaya tidak merosakkan permainan.
+    }
+
+    // ---------------------------------------------------------
+    // JIKA LULUS SEMUA SARINGAN, BUKA LOBI 3V3
+    // ---------------------------------------------------------
+
+    // 5. Sembunyikan skrin menu
+    const menuScreen = document.getElementById('menu-screen');
+    const challengeLobby = document.getElementById('challenge-lobby-screen');
+    if (menuScreen) menuScreen.classList.add('hidden');
+    if (challengeLobby) challengeLobby.classList.add('hidden');
+
+    // 6. Buka skrin Senarai Lobi baharu
+    const roomListScreen = document.getElementById('arena-3v3-room-list');
+    if (roomListScreen) roomListScreen.classList.remove('hidden');
+
+    // 7. Mula baca pangkalan data untuk cari lobi kawan-kawan
+    pantauSenaraiLobi();
+}
+
+// Fungsi untuk baca lobi yang berstatus 'waiting' secara Live (ENGLISH VERSION)
+function pantauSenaraiLobi() {
+    const container = document.getElementById('room-list-container');
+    
+    pantauLobiUnsubscribe = db.collection("arenas")
+        .where("status", "==", "waiting")
+        .onSnapshot((snapshot) => {
+            container.innerHTML = ""; 
+            
+            if (snapshot.empty) {
+                container.innerHTML = `<p class="text-slate-500 italic col-span-full text-center py-10 text-xl">No active lobbies right now. Please create a new lobby!</p>`;
+                return;
+            }
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const roomId = doc.id;
+                const totalPlayers = data.slots ? Object.keys(data.slots).length : 0;
+                
+                const roomCard = document.createElement('div');
+                roomCard.className = "bg-slate-800 border-2 border-slate-600 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500 transition";
+                
+                roomCard.innerHTML = `
+                    <div class="mb-4">
+                        <h4 class="text-xl font-bold text-white mb-1">🎮 ${data.roomName || "3v3 Lobby"}</h4>
+                        <p class="text-sm text-slate-300">Host: <span class="text-yellow-400 font-semibold">${data.host}</span></p>
+                    </div>
+                    <div class="flex justify-between items-center mt-auto">
+                        <span class="text-sm text-slate-400 font-bold bg-slate-900 px-3 py-1 rounded-full border border-slate-500">${totalPlayers}/6 Players</span>
+                        <button onclick="sertaiLobi('${roomId}')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow-md transition">JOIN</button>
+                    </div>
+                `;
+                container.appendChild(roomCard);
+            });
+        }, (error) => {
+            console.error("Failed to fetch lobby list:", error);
+            container.innerHTML = `<p class="text-red-500 italic col-span-full text-center py-10">Error connecting to the database.</p>`;
+        });
+}
+
+// Fungsi bila Host tekan Butang Kuning "BINA LOBI BAHARU" (ENGLISH VERSION)
+async function binaLobiBaru() {
+    currentLobbyId = "room_" + Date.now(); 
+    
+    // Pastikan gameData dibaca dengan selamat
+    const safeGameData = typeof gameData !== 'undefined' ? gameData : {};
+    const allCategories = Object.keys(safeGameData).filter(cat => cat.toLowerCase() !== 'missing'); 
+    const shuffled = allCategories.sort(() => 0.5 - Math.random());
+    const selectedCategories = shuffled.slice(0, 3);
+
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId);
+
+    try {
+        await lobbyRef.set({
+            roomName: studentInfo.name + "'s Lobby", // Tukar nama lobi ke English format
+            host: studentInfo.name,
+            status: "waiting", 
+            draftCategories: selectedCategories,
+            slots: {},         
+            selections: {},     
+            scoreA: 0,
+            scoreB: 0
+        });
+
+        if (pantauLobiUnsubscribe) pantauLobiUnsubscribe(); 
+        
+        // 1. Sembunyikan senarai bilik
+        document.getElementById('arena-3v3-room-list').classList.add('hidden');
+        
+        // 2. PAPARKAN SKRIN LOBI (Bilik Menunggu)
+        const lobbyScreen = document.getElementById('arena-3v3-lobby');
+        if (lobbyScreen) lobbyScreen.classList.remove('hidden');
+        
+        listenTo3v3Lobby(currentLobbyId); 
+
+        Swal.fire({
+            title: 'Lobby Created Successfully!',
+            text: 'Waiting for other players to join...',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+    } catch (error) {
+        console.error("Error creating lobby:", error);
+        Swal.fire('Error', 'Failed to create lobby. Please try again.', 'error');
+    }
+}
+
+// FUNGSI SERTAI LOBI (Bila kawan tekan butang biru "Join")
+function sertaiLobi(roomId) {
+    currentLobbyId = roomId; 
+    
+    if (pantauLobiUnsubscribe) pantauLobiUnsubscribe(); 
+    
+    // 1. Sembunyikan senarai bilik
+    document.getElementById('arena-3v3-room-list').classList.add('hidden');
+    
+    // 2. PAPARKAN SKRIN LOBI (Bilik Menunggu)
+    const lobbyScreen = document.getElementById('arena-3v3-lobby');
+    if (lobbyScreen) lobbyScreen.classList.remove('hidden');
+    
+    listenTo3v3Lobby(currentLobbyId); 
+}
+
+// Fungsi Butang Kembali ke Menu Utama dari Senarai Lobi
+function kembaliKeMenuDariRoomList() {
+    if (pantauLobiUnsubscribe) pantauLobiUnsubscribe(); 
+    document.getElementById('arena-3v3-room-list').classList.add('hidden');
+    document.getElementById('challenge-lobby-screen').classList.remove('hidden'); // Kembali ke skrin cabaran
+}
+
+// Fungsi untuk keluar dari lobi perlawanan (bila dah masuk bilik)
+function backToMenuFrom3v3() {
+    if (typeof unsubscribe3v3 !== 'undefined' && unsubscribe3v3) {
+        unsubscribe3v3();
+        unsubscribe3v3 = null;
+    }
+
+    const arena3v3 = document.getElementById('arena-3v3-lobby');
+    if (arena3v3) arena3v3.classList.add('hidden');
+    
+    const challengeLobby = document.getElementById('challenge-lobby-screen');
+    if (challengeLobby) challengeLobby.classList.remove('hidden');
+
+    leaveAll3v3Slots();
+
+    const statusEl = document.getElementById('lobby-3v3-status');
+    if (statusEl) statusEl.innerText = "WAITING FOR PLAYERS (0/6)..."; // Ditukar ke BI
+    
+    // Kosongkan ID lobi bila keluar
+    currentLobbyId = ""; 
+}
+
+// FUNGSI PADAM NAMA DARI SLOT MESTI GUNAKAN currentLobbyId
+function leaveAll3v3Slots() {
+    if (!currentLobbyId) return; // Elakkan ralat jika tiada lobi
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // Guna lobi dinamik
+    
+    lobbyRef.get().then(doc => {
+        if(doc.exists) {
+            let slots = doc.data().slots || {};
+            let changed = false;
+            for (let key in slots) {
+                if (slots[key] === studentInfo.name) {
+                    delete slots[key];
+                    changed = true;
+                }
+            }
+            if(changed) lobbyRef.update({ slots: slots });
+        }
+    });
+}
+
+// ==========================================
+// LANGKAH 2: PENGURUSAN LOBI (KICK & AUTO-START)
+// ==========================================
+
+let unsubscribe3v3 = null;
+let is3v3Host = false; // Memori untuk kenal pasti siapa boss (Host)
+
+// 1. MENDENGAR DATA LOBI & BERTINDAK (KINI TERIMA ID DINAMIK)
+function listenTo3v3Lobby(roomId) {
+    // Pastikan kita ada ID bilik yang sah
+    if (!roomId && !currentLobbyId) return;
+    const targetRoom = roomId || currentLobbyId;
+
+    if (unsubscribe3v3) {
+        unsubscribe3v3();
+        unsubscribe3v3 = null;
+    }
+
+    // 🔥 TUKAR DI SINI: Gunakan targetRoom, bukan lagi "3v3_lobby" statik
+    const lobbyRef = db.collection("arenas").doc(targetRoom);
+
+    unsubscribe3v3 = lobbyRef.onSnapshot((doc) => {
+        if (!doc.exists) return;
+        
+        const data = doc.data();
+        const slots = data.slots || {};
+        
+        is3v3Host = (data.host === studentInfo.name);
+
+        // ========================================================
+        // KUNCI MAGIK: JIKA SEDANG BATTLE, ABAIKAN SEMUA ARAHAN LOBI
+        // ========================================================
+        if (battle3v3_isActive) return; 
+
+        if (data.status === "drafting") {
+            masukFasaDraft(data); 
+            return;
+        }
+
+        update3v3UI(slots);
+
+        // KEMASKINI: Sekarang SEMUA pemain akan jalankan kiraan detik supaya sinkroni
+        if (data.status === "waiting") {
+            const jumlahPemain = Object.keys(slots).length;
+            
+            // NOTA: Tukar nombor 2 di bawah kepada 6 apabila mahu main betul-betul nanti
+            // (Atau tukar ke 1 jika cikgu uji seorang diri)
+            if (jumlahPemain === 6 && !window.kiraanMula) {
+                window.kiraanMula = true;
+                mulaKiraanKeDraft(lobbyRef, is3v3Host); 
+            } else if (jumlahPemain < 6) {
+                window.kiraanMula = false; 
+            }
+        }
+    });
+}
+
+// 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST
+function update3v3UI(slots) {
+    let count = 0;
+    const teams = ['A', 'B'];
+    
+    teams.forEach(t => {
+        for (let i = 1; i <= 3; i++) {
+            const slotId = `slot-${t}${i}`;
+            const slotEl = document.getElementById(slotId);
+            const occupant = slots[`${t}${i}`];
+
+            if (slotEl) {
+                if (occupant) {
+                    count++;
+                    let html = `<i class="fas fa-user-circle mr-2"></i> ${occupant}`;
+                    
+                    // JIKA SAYA HOST dan INI BUKAN DIRI SAYA -> Tunjuk Butang X (Kick)
+                    if (is3v3Host && occupant !== studentInfo.name) {
+                        html += ` <button onclick="event.stopPropagation(); kickPlayer3v3('${t}${i}')" class="ml-3 bg-white text-red-600 hover:bg-red-100 hover:text-red-800 px-2 py-0.5 rounded-full text-xs shadow-md" title="Tendang Pemain"><i class="fas fa-times"></i></button>`;
+                    }
+                    
+                    slotEl.innerHTML = html;
+                    
+                    // Serlahkan kotak dengan warna pasukan bila ada orang
+                    slotEl.className = `p-4 border-2 rounded-2xl text-center text-white font-bold transition shadow-lg ${t==='A' ? 'bg-red-500 border-red-700' : 'bg-blue-500 border-blue-700'}`;
+                    
+                } else {
+                    // Kembali ke bentuk asal jika kosong
+                    slotEl.innerHTML = `Join Slot ${t}${i}`;
+                    slotEl.className = `p-4 border-2 border-dashed rounded-2xl text-center cursor-pointer transition font-bold hover:scale-105 ${t==='A' ? 'border-red-300 text-gray-400 hover:bg-red-50 hover:border-red-500' : 'border-blue-300 text-gray-400 hover:bg-blue-50 hover:border-blue-500'}`;
+                }
+            }
+        }
+    });
+
+    // Kemaskini Status Menunggu/Penuh
+    const statusEl = document.getElementById('lobby-3v3-status');
+    if (statusEl) {
+        if (count === 6) {
+            statusEl.innerText = "LOBBY FULL! GET READY...";
+            statusEl.classList.remove('text-purple-700', 'animate-pulse');
+            statusEl.classList.add('text-green-600');
+        } else {
+            statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
+            statusEl.classList.remove('text-green-600');
+            statusEl.classList.add('text-purple-700', 'animate-pulse');
+        }
+    }
+}
+
+// 3. FUNGSI MENENDANG PEMAIN
+async function kickPlayer3v3(slotKey) {
+    if (!currentLobbyId) return; // Halang ralat jika tiada ID lobi
+
+    // 🔥 TUKAR DI SINI: Gunakan currentLobbyId, bukan lagi "3v3_lobby" statik
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); 
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(lobbyRef);
+            const slots = doc.data().slots || {};
+            
+            if (slots[slotKey]) {
+                delete slots[slotKey]; // Padam nama dari slot tersebut
+                transaction.update(lobbyRef, { slots: slots });
+            }
+        });
+    } catch (err) {
+        console.error("Gagal menendang pemain:", err);
+    }
+}
+
+// 4. KIRAAN DETIK AUTO-START (Hanya Dijalankan Oleh Host)
+function mulaKiraanKeDraft(lobbyRef, isHost) {
+    let masa = 5;
+    const statusEl = document.getElementById('lobby-3v3-status');
+    
+    const interval = setInterval(() => {
+        if (!window.kiraanMula) {
+            clearInterval(interval);
+            return;
+        }
+
+        if (statusEl) {
+            statusEl.innerText = `PERLAWANAN BERMULA DALAM ${masa}...`;
+            statusEl.classList.remove('text-purple-700', 'animate-pulse');
+            statusEl.classList.add('text-red-600', 'animate-bounce');
+        }
+        
+        masa--;
+
+        if (masa < 0) {
+            clearInterval(interval);
+            
+            // HANYA HOST YANG JANA 9 KATEGORI RAWAK & TUKAR STATUS KE BANNING
+            if (isHost) {
+                // Ambil semua nama kategori dari data.js (Anggap ia dalam window.gameData)
+                const allCategories = Object.keys(typeof gameData !== 'undefined' ? gameData : {});
+                
+                // Gaulkan (Shuffle) dan ambil 9 sahaja
+                const shuffled = allCategories.sort(() => 0.5 - Math.random());
+                const pool9 = shuffled.slice(0, 9);
+
+                lobbyRef.update({ 
+                    status: "banning", // <-- TUKAR KE FASA BANNING DULU
+                    draftPool: pool9,
+                    bannedCategories: [],
+                    banCount: { A: 0, B: 0 }
+                });
+            }
+        }
+    }, 1000);
+}
+
+// ==========================================
+// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS)
+// ==========================================
+
+function masukFasaDraft(data) {
+    const lobbyScreen = document.getElementById('arena-3v3-lobby');
+    const draftScreen = document.getElementById('arena-3v3-draft');
+    
+    if (lobbyScreen) lobbyScreen.classList.add('hidden');
+    if (draftScreen) draftScreen.classList.remove('hidden');
+
+    // 1. Kenal pasti slot & pasukan saya
+    let mySlotKey = null;
+    let myTeam = null;
+    for (let key in data.slots) {
+        if (data.slots[key] === studentInfo.name) {
+            mySlotKey = key;
+            myTeam = key.charAt(0); // 'A' atau 'B'
+            break;
+        }
+    }
+
+    // 2. Kemaskini Nama pada UI
+    paparkanNamaDraft(data);
+
+    // 3. KAWALAN SUB-FASA (BANNING ATAU PICKING)
+    const container = document.getElementById('draft-category-buttons');
+    const titleEl = document.getElementById('draft-title'); // Pastikan cikgu ada elemen tajuk di HTML
+    
+    if (data.status === "banning") {
+        if (titleEl) titleEl.innerText = "FASA BAN: BUANG 3 KATEGORI!";
+        renderBanPhase(data, container, myTeam);
+        
+        // Host pantau: Jika 6 ban sudah dibuat, tukar ke fasa picking
+        if (is3v3Host && data.bannedCategories && data.bannedCategories.length === 6) {
+            db.collection("arenas").doc(currentLobbyId).update({ status: "drafting" });
+        }
+        
+    } else if (data.status === "drafting") {
+        if (titleEl) titleEl.innerText = "FASA DRAFT: PILIH KATEGORI ANDA!";
+        renderPickPhase(data, container, mySlotKey);
+        
+        // Host pantau: Jika semua pemain dah pick (Tukar 2 ke 6 nanti)
+        const totalSelected = data.selections ? Object.keys(data.selections).length : 0;
+        if (is3v3Host && totalSelected === 6) { 
+            db.collection("arenas").doc(currentLobbyId).update({ status: "playing" });
+            masukBattle(data, mySlotKey); 
+        } else if (!is3v3Host && totalSelected === 6) {
+            // Pemain biasa terus masuk battle jika status tukar
+            masukBattle(data, mySlotKey);
+        }
+    }
+}
+
+// ---------------------------------------------------------
+// FASA 1: BANNING (BUANG KATEGORI)
+// ---------------------------------------------------------
+function renderBanPhase(data, container, myTeam) {
+    if (!container || !data.draftPool) return;
+    container.innerHTML = ''; 
+    
+    const bans = data.bannedCategories || [];
+    const banCountA = data.banCount ? data.banCount.A : 0;
+    const banCountB = data.banCount ? data.banCount.B : 0;
+    
+    // Status Ban Pasukan
+    let myTeamBanCount = myTeam === 'A' ? banCountA : banCountB;
+    let bolehBanLagi = (myTeamBanCount < 3);
+
+    data.draftPool.forEach((catKey) => {
+        const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
+        const isBanned = bans.includes(catKey);
+        
+        const btn = document.createElement('button');
+        btn.id = `btn-ban-${catKey}`;
+        btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
+        
+        if (isBanned) {
+            btn.className += "bg-red-950 border-red-700 opacity-50 cursor-not-allowed";
+            btn.innerHTML = `<div class="text-red-500 line-through font-black text-xl mb-2">${displayName}</div>
+                             <div class="text-sm text-red-500 font-bold">Telah Dibuang</div>`;
+        } else {
+            btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500";
+            btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
+                             <div class="text-sm text-slate-400 italic">Klik untuk BAN</div>`;
+            
+            if (bolehBanLagi && myTeam) {
+                btn.onclick = () => banKategori(catKey, myTeam);
+            } else {
+                btn.classList.add('opacity-70', 'cursor-not-allowed');
+                btn.onclick = () => Swal.fire('Nanti Dulu!', 'Pasukan anda sudah membuang 3 kategori.', 'warning');
+            }
+        }
+        container.appendChild(btn);
+    });
+}
+
+async function banKategori(catKey, myTeam) {
+    if (!currentLobbyId) return;
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId);
+    
+    try {
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(lobbyRef);
+            const data = doc.data();
+            let bans = data.bannedCategories || [];
+            let counts = data.banCount || { A: 0, B: 0 };
+            
+            if (!bans.includes(catKey) && counts[myTeam] < 3) {
+                bans.push(catKey);
+                counts[myTeam] += 1;
+                transaction.update(lobbyRef, { 
+                    bannedCategories: bans,
+                    banCount: counts
+                });
+            }
+        });
+    } catch (err) {
+        console.error("Gagal membuang kategori:", err);
+    }
+}
+
+// ---------------------------------------------------------
+// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL)
+// ---------------------------------------------------------
+function renderPickPhase(data, container, mySlotKey) {
+    if (!container || !data.draftPool) return;
+    container.innerHTML = ''; 
+    
+    const bans = data.bannedCategories || [];
+    // Tapis 3 kategori yang terselamat
+    const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
+
+    availablePool.forEach((catKey) => {
+        const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
+        
+        const btn = document.createElement('button');
+        btn.id = `btn-draft-${catKey}`;
+        btn.className = "group relative bg-slate-800 border-2 border-slate-700 p-6 rounded-2xl transition-all hover:scale-105 hover:border-yellow-500 flex flex-col items-center justify-center min-w-[200px]";
+        
+        let statusText = "Tersedia";
+        let isDisabled = false;
+        let statusClass = "text-slate-400";
+
+        if (data.selections) {
+            for (let slot in data.selections) {
+                if (data.selections[slot] === catKey) {
+                    const teamInvolved = slot.charAt(0);
+                    const myTeam = mySlotKey ? mySlotKey.charAt(0) : '';
+                    
+                    if (teamInvolved === myTeam) {
+                        statusText = (slot === mySlotKey) ? "ANDA PILIH" : "RAKAN AMBIL";
+                        statusClass = "text-yellow-500 font-bold animate-pulse";
+                        isDisabled = true;
+                    }
+                }
+            }
+        }
+
+        btn.innerHTML = `
+            <div class="text-white font-black text-xl mb-2">${displayName}</div>
+            <div class="text-sm ${statusClass} italic">${statusText}</div>
+        `;
+
+        if (isDisabled) {
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey, data);
+        }
+
+        container.appendChild(btn);
+    });
+    
+    // Kemaskini nama dan warna pilihan di bawah skrin
+    kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
+}
+
+async function pilihKategoriDraft(catKey, mySlotKey, lobbyData) {
+    if (!mySlotKey || !currentLobbyId) return;
+
+    const myTeam = mySlotKey.charAt(0); 
+    const selections = lobbyData.selections || {};
+
+    // Halang jika rakan sudah ambil
+    for (let slot in selections) {
+        if (slot.charAt(0) === myTeam && selections[slot] === catKey) {
+            Swal.fire('Kategori Diambil!', 'Rakan sepasukan anda sudah memilih kategori ini.', 'warning');
+            return;
+        }
+    }
+
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // Guna ID Dinamik
+    try {
+        await lobbyRef.update({
+            [`selections.${mySlotKey}`]: catKey
+        });
+    } catch (err) {
+        console.error("Gagal memilih kategori:", err);
+    }
+}
+
+// ---------------------------------------------------------
+// FUNGSI SOKONGAN UI & LOBI
+// ---------------------------------------------------------
+function paparkanNamaDraft(data) {
+    for (let i = 1; i <= 3; i++) {
+        ['A', 'B'].forEach(team => {
+            const slotKey = `${team}${i}`;
+            const nameEl = document.getElementById(`draft-name-${slotKey}`);
+            if (nameEl) {
+                const playerName = data.slots[slotKey] || "Kosong";
+                nameEl.innerText = `${slotKey}: ${playerName}`;
+            }
+        });
+    }
+}
+
+function kemaskiniPilihanDraftUI(selections, mySlotKey) {
+    for (let slotKey in selections) {
+        const catChosen = selections[slotKey];
+        const displayEl = document.getElementById(`draft-pick-${slotKey}`);
+
+        if (displayEl) {
+            displayEl.innerText = catChosen.toUpperCase();
+            displayEl.className = slotKey.startsWith('A') 
+                ? "text-red-400 font-black bg-red-950 px-3 py-1 rounded-lg border border-red-800"
+                : "text-blue-400 font-black bg-blue-950 px-3 py-1 rounded-lg border border-blue-800";
+        }
+    }
+}
+
+async function join3v3Team(team, slotNum) {
+    if (!currentLobbyId) return;
+    const slotKey = `${team}${slotNum}`;
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // Guna ID Dinamik
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(lobbyRef);
+            const slots = doc.data().slots || {};
+
+            if (slots[slotKey]) throw "Slot ini sudah diambil!";
+
+            for (let key in slots) {
+                if (slots[key] === studentInfo.name) delete slots[key];
+            }
+
+            slots[slotKey] = studentInfo.name;
+            transaction.update(lobbyRef, { slots: slots });
+        });
+    } catch (err) {
+        Swal.fire('Gagal', err, 'error');
+    }
+}
+
+function leaveAll3v3Slots() {
+    if (!currentLobbyId) return;
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // Guna ID Dinamik
+    
+    lobbyRef.get().then(doc => {
+        if(doc.exists) {
+            let slots = doc.data().slots || {};
+            let changed = false;
+            for (let key in slots) {
+                if (slots[key] === studentInfo.name) {
+                    delete slots[key];
+                    changed = true;
+                }
+            }
+            if(changed) lobbyRef.update({ slots: slots });
+        }
+    });
+}
+
+// ==========================================
+// ==========================================
+// LANGKAH 4: ARENA BATTLE & PENGURUSAN MARKAH
+// ==========================================
+
+// Variabel Global Khas untuk 3v3 Battle
+let battle3v3_senaraiSoalan = [];
+let battle3v3_indeksSoalan = 0;
+let battle3v3_masaSoalan = 20;
+let battle3v3_intervalSoalan = null;
+let battle3v3_masaMaster = 180; // 3 Minit = 180 Saat
+let battle3v3_intervalMaster = null;
+let battle3v3_isActive = false;
+let my3v3IndividualScore = 0;
+let my3v3SubmitCount = 0;
+let my3v3CurrentStreak = 0;
+let my3v3LongestStreak = 0;
+let battle3v3_isMemproses = false;
+
+function masukBattle(data, mySlotKey) {
+    if (!currentLobbyId) return; // Langkah keselamatan
+
+    const draftScreen = document.getElementById('arena-3v3-draft');
+    const battleScreen = document.getElementById('arena-3v3-battle');
+    
+    if (draftScreen) draftScreen.classList.add('hidden');
+    if (battleScreen) battleScreen.classList.remove('hidden');
+
+    battle3v3_isActive = true;
+
+    // 1. Dengar Markah dari Firebase Secara Real-time (GUNA ID DINAMIK)
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId);
+    lobbyRef.onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const bData = doc.data();
+        
+        const elScoreA = document.getElementById('score-team-A');
+        const elScoreB = document.getElementById('score-team-B');
+        
+        if (elScoreA) elScoreA.innerText = bData.scoreA || 0;
+        if (elScoreB) elScoreB.innerText = bData.scoreB || 0;
+    });
+
+    // 2. Mulakan Master Timer (3 Minit)
+    mulakanMasterTimer3v3(mySlotKey);
+
+    // 3. Muatkan Soalan Berdasarkan Kategori Murid
+    if (data.selections && mySlotKey && data.selections[mySlotKey]) {
+        const kategoriSaya = data.selections[mySlotKey];
+        mulakanSoalan3v3(kategoriSaya, mySlotKey);
+    } else {
+        // JIKA SKRIN INI TIDAK MASUK SLOT / TAK PILIH KATEGORI (JADI PENONTON)
+        const qBox = document.getElementById('battle-question-box');
+        if (qBox) {
+            qBox.innerHTML = `
+                <h3 class="text-3xl text-slate-500 font-bold mb-4">Match in Progress!</h3>
+                <p class="text-xl text-slate-400">You are a spectator. Keep an eye on the scores above.</p>
+            `;
+        }
+    }
+}
+
+function mulakanMasterTimer3v3(mySlotKey) { 
+    battle3v3_masaMaster = 180; 
+    const elTimer = document.getElementById('battle-timer');
+    
+    battle3v3_intervalMaster = setInterval(() => {
+        if (!battle3v3_isActive) {
+            clearInterval(battle3v3_intervalMaster);
+            return;
+        }
+
+        battle3v3_masaMaster--;
+        
+        // Format paparan MM:SS
+        let minit = Math.floor(battle3v3_masaMaster / 60);
+        let saat = battle3v3_masaMaster % 60;
+        minit = minit < 10 ? "0" + minit : minit;
+        saat = saat < 10 ? "0" + saat : saat;
+        
+        if (elTimer) elTimer.innerText = `${minit}:${saat}`;
+
+        // Tukar warna jadi merah bila masa kurang 10 saat!
+        if (battle3v3_masaMaster <= 10 && elTimer) {
+            elTimer.classList.add('text-red-500', 'animate-ping');
+        }
+
+        if (battle3v3_masaMaster <= 0) {
+            clearInterval(battle3v3_intervalMaster);
+            
+            // ===============================================
+            // PANGGIL FUNGSI TAMAT PERLAWANAN
+            // ===============================================
+            tamatkanBattle3v3(mySlotKey); 
+        }
+    }, 1000);
+}
+
+// (Telah diseragamkan nama kepada tamatkanBattle3v3 & DITAMBAH REKOD HAD HARIAN)
+async function tamatkanBattle3v3(mySlotKey) {
+    if (!currentLobbyId) return;
+
+    battle3v3_isActive = false;
+    clearInterval(battle3v3_intervalSoalan); 
+    clearInterval(battle3v3_intervalMaster);
+
+    // --- TAMBAHAN 1: Beritahu Firebase yang perlawanan dah tamat ---
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // GUNA ID DINAMIK
+    try {
+        await lobbyRef.update({ status: "finished" });
+    } catch (err) {
+        console.error("Failed to update status to finished:", err);
+    }
+    
+    // --- TAMBAHAN 2: KEMASKINI HAD HARIAN PEMAIN KE FIREBASE (MAX 2 KALI) ---
+    if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+        const today = new Date().toISOString().split('T')[0];
+        const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+        const playerRef = db.collection("players").doc(docId);
+        
+        try {
+            const playerDoc = await playerRef.get();
+            if (playerDoc.exists) {
+                const pData = playerDoc.data();
+                if (pData.lastArena3v3Date === today) {
+                    await playerRef.update({ arena3v3CountToday: firebase.firestore.FieldValue.increment(1) });
+                } else {
+                    await playerRef.update({ lastArena3v3Date: today, arena3v3CountToday: 1 });
+                }
+            } else {
+                await playerRef.set({ lastArena3v3Date: today, arena3v3CountToday: 1 }, { merge: true });
+            }
+        } catch (err) {
+            console.error("Failed to update daily 3v3 limits:", err);
+        }
+    }
+    // ----------------------------------------------------------
+    
+    const qBox = document.getElementById('battle-question-box');
+    if (qBox) {
+        qBox.innerHTML = `
+            <h2 class="text-5xl md:text-6xl text-red-600 font-black mb-4 drop-shadow-md">TIME'S UP!</h2>
+            <p class="text-xl text-gray-600 font-bold mb-8">Please check your team's final score above.</p>
+            <button onclick="location.reload()" class="bg-slate-800 text-white font-black text-xl px-8 py-4 rounded-2xl shadow-lg hover:bg-slate-700 hover:scale-105 transition w-full md:w-auto">BACK TO MAIN MENU</button>
+        `;
+    }
+}
+
+function mulakanSoalan3v3(kategori, mySlotKey) {
+    // Pastikan kategori wujud
+    if (typeof gameData !== 'undefined' && gameData[kategori]) {
+        // Salin array soalan supaya tak kacau data asal, dan susun rawak (shuffle)
+        battle3v3_senaraiSoalan = [...gameData[kategori]].sort(() => Math.random() - 0.5);
+        battle3v3_indeksSoalan = 0;
+        
+        // 1. Paparkan soalan pertama
+        paparSoalanSeterusnya3v3(mySlotKey);
+    } else {
+        document.getElementById('battle-question-box').innerHTML = `<p class="text-red-500 font-bold">Error: Questions not found!</p>`;
+    }
+}
+
+function paparSoalanSeterusnya3v3(mySlotKey) {
+    if (!battle3v3_isActive) return;
+
+    // Buka semula kunci untuk membolehkan murid menaip dan hantar
+    battle3v3_isMemproses = false; 
+
+    // Jika soalan dah habis, kocak semula (Infinite Loop)
+    if (battle3v3_indeksSoalan >= battle3v3_senaraiSoalan.length) {
+        battle3v3_senaraiSoalan = battle3v3_senaraiSoalan.sort(() => Math.random() - 0.5);
+        battle3v3_indeksSoalan = 0;
+    }
+
+    const soalanKini = battle3v3_senaraiSoalan[battle3v3_indeksSoalan];
+    const qBox = document.getElementById('battle-question-box');
+    
+    // Reset masa 20 saat
+    battle3v3_masaSoalan = 20;
+    clearInterval(battle3v3_intervalSoalan);
+
+    // Bina UI Soalan
+    qBox.innerHTML = `
+        <div class="w-full flex justify-between items-center mb-6">
+            <span class="bg-slate-100 border-2 border-slate-300 text-slate-700 px-4 py-1 rounded-full text-sm font-bold">Question ${battle3v3_indeksSoalan + 1}</span>
+            <span class="bg-red-100 border-2 border-red-300 text-red-600 px-4 py-1 rounded-full text-sm font-black flex items-center gap-2">
+                ⏳ <span id="soalan-timer" class="text-xl">20</span>s
+            </span>
+        </div>
+        
+        <h3 class="text-3xl md:text-4xl text-slate-800 font-black mb-8 text-center leading-relaxed w-full">
+            ${soalanKini.q}
+        </h3>
+        
+        <input type="text" id="jawapan-input" class="w-full md:w-3/4 border-4 border-slate-300 rounded-2xl p-4 text-3xl text-center font-bold text-slate-800 focus:outline-none focus:border-blue-500 mb-6 bg-slate-50" placeholder="Type your answer..." autocomplete="off">
+        
+        <button id="btn-submit-jawapan" class="bg-blue-600 hover:bg-blue-500 text-white font-black text-2xl px-10 py-4 rounded-2xl shadow-[0_10px_0_rgba(37,99,235,0.8)] active:shadow-[0_0px_0_rgba(37,99,235,0.8)] active:translate-y-2 transition-all w-full md:w-3/4">
+            SUBMIT
+        </button>
+    `;
+
+    // Auto-focus kotak input supaya murid boleh terus menaip
+    const inputEl = document.getElementById('jawapan-input');
+    if (inputEl) inputEl.focus();
+
+    // Mulakan timer turun 20 saat
+    battle3v3_intervalSoalan = setInterval(() => {
+        if (!battle3v3_isActive) {
+            clearInterval(battle3v3_intervalSoalan);
+            return;
+        }
+
+        battle3v3_masaSoalan--;
+        const sTimer = document.getElementById('soalan-timer');
+        if (sTimer) sTimer.innerText = battle3v3_masaSoalan;
+
+        if (battle3v3_masaSoalan <= 0) {
+            // MASA TAMAT: Hantar arahan kena denda (-2)
+            hantarJawapan3v3(mySlotKey, soalanKini.a, true);
+        }
+    }, 1000);
+
+    // Dengar klik butang Submit
+    document.getElementById('btn-submit-jawapan').onclick = () => hantarJawapan3v3(mySlotKey, soalanKini.a, false);
+    
+    // Dengar jika murid tekan 'Enter' di keyboard
+    inputEl.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            hantarJawapan3v3(mySlotKey, soalanKini.a, false);
+        }
+    });
+}
+
+async function hantarJawapan3v3(mySlotKey, jawapanSebenar, isTimeout) {
+    if (!battle3v3_isActive || !currentLobbyId) return; // Langkah Keselamatan
+    
+    // SISTEM KUNCI: Jika sedang memproses jawapan, abaikan klik/enter yang bertindih
+    if (battle3v3_isMemproses) return;
+    battle3v3_isMemproses = true; // Kunci sistem!
+    
+    // Hentikan timer serta merta supaya markah tak tolak 2 kali
+    clearInterval(battle3v3_intervalSoalan);
+    
+    const inputEl = document.getElementById('jawapan-input');
+    const qBox = document.getElementById('battle-question-box');
+    
+    // Halang input supaya murid tak boleh taip apa-apa lagi semasa skrin beralih
+    if (inputEl) {
+        inputEl.disabled = true; 
+        document.getElementById('btn-submit-jawapan').disabled = true;
+    }
+    
+    // LOGIK SEMAKAN (Abaikan huruf besar/kecil & buang jarak)
+    const jawapanMurid = inputEl ? inputEl.value.trim().toLowerCase() : "";
+    
+    // POTONG JAWAPAN SEBENAR MENGGUNAKAN "|"
+    const senaraiJawapanBetul = jawapanSebenar.trim().toLowerCase().split("|");
+
+    let perubahanMarkah = 0;
+    let feedbackText = "";
+    let colorClass = "";
+
+    if (isTimeout || jawapanMurid === "") {
+        perubahanMarkah = -2;
+        feedbackText = "TIME'S UP! (-2)";
+        colorClass = "text-red-600";
+    } else if (senaraiJawapanBetul.includes(jawapanMurid)) { // <-- SEMAK DALAM SENARAI
+        perubahanMarkah = 1;
+        feedbackText = "CORRECT! (+1)";
+        colorClass = "text-green-500";
+    } else {
+        perubahanMarkah = -1;
+        feedbackText = "WRONG! (-1)";
+        colorClass = "text-red-500";
+    }
+
+    // Tunjuk kesan visual sekejap kepada murid (1 saat)
+    if (qBox) {
+        qBox.innerHTML = `
+            <div class="flex flex-col items-center justify-center min-h-[250px]">
+                <h2 class="text-5xl md:text-7xl font-black ${colorClass} mb-4 drop-shadow-md animate-bounce">${feedbackText}</h2>
+                ${perubahanMarkah !== 1 ? `<p class="text-xl font-bold text-slate-500 mt-2">Correct answer: <span class="text-slate-800">${jawapanSebenar}</span></p>` : ''}
+            </div>
+        `;
+    }
+
+    // ==========================================
+    // KEMASKINI TRACKER INDIVIDU (DI DALAM SISTEM)
+    // ==========================================
+    my3v3SubmitCount++; 
+
+    if (perubahanMarkah === 1) { 
+        my3v3IndividualScore += perubahanMarkah;
+        my3v3CurrentStreak++;
+        
+        if (my3v3CurrentStreak > my3v3LongestStreak) {
+            my3v3LongestStreak = my3v3CurrentStreak;
+        }
+    } else { 
+        my3v3IndividualScore += perubahanMarkah;
+        my3v3CurrentStreak = 0; 
+    }
+
+    // ==========================================
+    // KEMASKINI FIREBASE (MARKAH PASUKAN & STATISTIK INDIVIDU)
+    // ==========================================
+    const teamSaya = mySlotKey.charAt(0); // Kenal pasti 'A' atau 'B'
+    const fieldMarkah = teamSaya === 'A' ? "scoreA" : "scoreB";
+    const lobbyRef = db.collection("arenas").doc(currentLobbyId); // GUNA ID DINAMIK
+
+    try {
+        await lobbyRef.update({
+            [fieldMarkah]: firebase.firestore.FieldValue.increment(perubahanMarkah),
+            
+            [`playerStats.${mySlotKey}.name`]: studentInfo.name,
+            [`playerStats.${mySlotKey}.score`]: my3v3IndividualScore,
+            [`playerStats.${mySlotKey}.submitCount`]: my3v3SubmitCount,
+            [`playerStats.${mySlotKey}.longestStreak`]: my3v3LongestStreak
+        });
+    } catch (err) {
+        console.error("Failed to update scores:", err);
+    }
+
+    // Selepas tunggu 1.5 saat melihat jawapan, pergi soalan seterusnya
+    setTimeout(() => {
+        if (battle3v3_isActive) {
+            battle3v3_indeksSoalan++;
+            paparSoalanSeterusnya3v3(mySlotKey);
+        }
+    }, 1500); 
+}
+
+// ==========================================
+// LANGKAH 5A: KIRA KEPUTUSAN & GANJARAN 3V3
+// ==========================================
+async function tamatkanBattle3v3(mySlotKey) {
+    if (!currentLobbyId) return;
+
+    battle3v3_isActive = false; // Matikan status perlawanan
+    clearInterval(battle3v3_intervalSoalan); // Hentikan masa soalan
+    clearInterval(battle3v3_intervalMaster); // Hentikan master timer
+
+    const qBox = document.getElementById('battle-question-box');
+    if (qBox) {
+        qBox.innerHTML = `
+            <div class="flex flex-col items-center justify-center mt-10">
+                <h2 class="text-4xl font-black text-blue-600 animate-pulse text-center">MASA TAMAT!</h2>
+                <p class="text-2xl text-slate-500 font-bold mt-2">Sistem sedang mengira keputusan perlawanan...</p>
+            </div>
+        `;
+    }
+
+    // TUNGGU 2 SAAT: Beri masa kepada Firebase untuk selesaikan penerimaan markah terakhir
+    setTimeout(async () => {
+        try {
+            const lobbyRef = db.collection("arenas").doc(currentLobbyId);
+            const doc = await lobbyRef.get();
+            if (!doc.exists) return;
+
+            const data = doc.data();
+            const scoreA = data.scoreA || 0;
+            const scoreB = data.scoreB || 0;
+            const playerStats = data.playerStats || {};
+
+            // Kemaskini status kepada 'finished' jika belum
+            if (data.status !== "finished") {
+                await lobbyRef.update({ status: "finished" });
+            }
+
+            // 1. TENTUKAN STATUS PASUKAN (Menang / Kalah / Seri)
+            const pasukanSaya = mySlotKey.charAt(0); // 'A' atau 'B'
+            const markahPasukanSaya = (pasukanSaya === 'A') ? scoreA : scoreB;
+            const markahPasukanLawan = (pasukanSaya === 'A') ? scoreB : scoreA;
+
+            let statusKeputusan = "SERI";
+            let baseXP = 100;
+            let baseCoins = 250;
+
+            if (markahPasukanSaya > markahPasukanLawan) {
+                statusKeputusan = "MENANG";
+                baseXP = 500; baseCoins = 1000;
+            } else if (markahPasukanSaya < markahPasukanLawan) {
+                statusKeputusan = "KALAH";
+                baseXP = 250; baseCoins = 500;
+            }
+
+            // 2. SEMAK STATUS AFK (Kurang dari 3 jawapan dihantar)
+            let isAFK = my3v3SubmitCount < 3;
+            let finalXP = 0;
+            let finalCoins = 0;
+            let bonusXP = 0;
+            let bonusCoins = 0;
+            let senaraiPencapaian = []; 
+
+            if (isAFK) {
+                // Hukuman Berat Untuk AFK (Tolak syiling)
+                finalCoins = -1000;
+                finalXP = 0;
+                senaraiPencapaian.push("⚠️ AFK DIKESAN (Penalti -1000 Syiling)");
+            } else {
+                // 3. KIRA RANKING & MVP (Hanya jika tidak AFK)
+                let senaraiPemain = Object.keys(playerStats).map(key => ({
+                    id: key,
+                    ...playerStats[key]
+                }));
+
+                // Cari MVP (Berdasarkan Longest Streak Tertinggi)
+                let susunanMVP = [...senaraiPemain].sort((a, b) => b.longestStreak - a.longestStreak);
+                let mvpId = (susunanMVP.length > 0 && susunanMVP[0].longestStreak > 0) ? susunanMVP[0].id : null; 
+
+                // Cari Ranking (Berdasarkan Skor Individu)
+                let susunanRanking = [...senaraiPemain].sort((a, b) => b.score - a.score);
+                let rankSaya = susunanRanking.findIndex(p => p.id === mySlotKey) + 1;
+
+                // Bonus Berdasarkan Rank
+                if (rankSaya === 1) { bonusXP = 500; bonusCoins = 1000; senaraiPencapaian.push("🏆 TOP 1"); }
+                else if (rankSaya === 2) { bonusXP = 250; bonusCoins = 500; senaraiPencapaian.push("🥈 TOP 2"); }
+                else if (rankSaya === 3) { bonusXP = 100; bonusCoins = 250; senaraiPencapaian.push("🥉 TOP 3"); }
+                else { bonusXP = 50; bonusCoins = 100; senaraiPencapaian.push("🎖️ SAGUHATI"); }
+
+                // Bonus MVP
+                if (mySlotKey === mvpId) {
+                    bonusXP += 500; bonusCoins += 1000;
+                    senaraiPencapaian.push("⭐ MVP (STREAK TERPANJANG)");
+                }
+
+                finalXP = baseXP + bonusXP;
+                finalCoins = baseCoins + bonusCoins;
+            }
+
+            // 4. PAPAR SKRIN KEPUTUSAN
+            paparSkrinKeputusan3v3(statusKeputusan, finalXP, finalCoins, senaraiPencapaian, scoreA, scoreB);
+
+        } catch (err) {
+            console.error("Gagal mengira keputusan 3v3:", err);
+        }
+    }, 2500); 
+}
+
+// ==========================================
+// LANGKAH 5B: UI SKRIN KEPUTUSAN 3V3
+// ==========================================
+function paparSkrinKeputusan3v3(status, totalXP, totalCoins, pencapaianList, scoreA, scoreB) {
+    const qBox = document.getElementById('battle-question-box');
+    if (!qBox) return;
+
+    let warnaStatus = "text-yellow-500";
+    let bgStatus = "bg-yellow-50";
+    if (status === "MENANG") { warnaStatus = "text-green-600"; bgStatus = "bg-green-50"; }
+    if (status === "KALAH") { warnaStatus = "text-red-600"; bgStatus = "bg-red-50"; }
+
+    let htmlPencapaian = pencapaianList.map(item => `
+        <span class="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-black m-1 shadow-sm uppercase tracking-wider">
+            ${item}
+        </span>
+    `).join('');
+
+    qBox.innerHTML = `
+        <div class="flex flex-col items-center justify-center p-4 md:p-8 ${bgStatus} rounded-3xl border-4 border-white shadow-2xl animate__animated animate__zoomIn">
+            <h1 class="text-7xl md:text-8xl font-black ${warnaStatus} drop-shadow-xl mb-2 italic">
+                ${status}!
+            </h1>
+            
+            <p class="text-lg md:text-xl font-bold text-slate-500 mb-6 uppercase tracking-widest">
+                PASUKAN A <span class="text-slate-800 font-black mx-2">${scoreA} — ${scoreB}</span> PASUKAN B
+            </p>
+            
+            <div class="flex flex-wrap justify-center mb-8 max-w-md">
+                ${htmlPencapaian}
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 w-full max-w-md mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-2 border-slate-100 text-center">
+                    <p class="text-xs font-black text-slate-400 uppercase mb-1">Ganjaran XP</p>
+                    <p class="text-4xl font-black text-purple-600">${totalXP >= 0 ? '+' : ''}${totalXP}</p>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border-2 border-slate-100 text-center">
+                    <p class="text-xs font-black text-slate-400 uppercase mb-1">Syiling Emas</p>
+                    <p class="text-4xl font-black text-amber-500">${totalCoins >= 0 ? '+' : ''}${totalCoins}</p>
+                </div>
+            </div>
+
+            <button onclick="location.reload()" class="w-full md:w-auto px-12 py-4 bg-slate-900 hover:bg-slate-800 text-white font-black text-xl rounded-2xl shadow-[0_8px_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-1 transition-all">
+                KEMBALI KE MENU UTAMA
+            </button>
+        </div>
+    `;
 }

@@ -13,7 +13,6 @@ async function submitEduCheckout() {
     let playerClass = (typeof localPlayerData !== 'undefined' && localPlayerData.class) ? localPlayerData.class : "-";
     let playerSchool = (typeof localPlayerData !== 'undefined' && localPlayerData.school) ? localPlayerData.school : "SK_DEFAULT";
     
-    // Hasilkan ID Dokumen Pemain (Sama seperti auth.js)
     let playerDocId = `${playerSchool}_${playerClass}_${playerName}`.replace(/\s+/g, '_');
 
     btn.disabled = true;
@@ -21,7 +20,6 @@ async function submitEduCheckout() {
     btn.classList.add('opacity-50', 'cursor-not-allowed');
 
     try {
-        // 1. Rekod pesanan ke dalam koleksi 'eduOrders'
         await db.collection("eduOrders").add({
             orderID: "ORD-" + Date.now(),
             studentName: playerName,
@@ -35,16 +33,12 @@ async function submitEduCheckout() {
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        // 2. Tolak stok dari koleksi 'eduItems' supaya murid lain tak boleh beli stok yang dah habis
         await db.collection("eduItems").doc(itemID).update({
             stock: firebase.firestore.FieldValue.increment(-qty)
         });
 
         closeEduCheckout();
-        
-        alert("✅ PESANAN DIHANTAR KE CIKGU!\n\nKoin anda belum ditolak. Koin hanya akan ditolak selepas Game Master menyerahkan barang kepada anda.");
-        
-        // Refresh kedai untuk paparkan stok terkini
+        alert("✅ ORDERED SENT!\n\nYour coin hasn't been deducted. Coin will be deducted once ADMIN comfirm your order.");
         syncEduStock(); 
         
     } catch (error) {
@@ -73,7 +67,6 @@ async function syncEduStock() {
     }
 
     try {
-        // Tarik data stok dari Firestore
         const snapshot = await db.collection("eduItems").get();
         const realTimeInventory = [];
         snapshot.forEach(doc => realTimeInventory.push(doc.data()));
@@ -86,7 +79,6 @@ async function syncEduStock() {
                     localItem.price = dbItem.price;   
                 }
             });
-            
             if (typeof renderShop === 'function') renderShop();
         }
     } catch (error) {
@@ -98,12 +90,11 @@ async function syncEduStock() {
 // ADMIN FIREBASE CONTROL LOGIC
 // ==========================================
 
-let adminInventoryData = []; // PEMBOLEHUBAH INI WAJIB ADA
+let adminInventoryData = []; 
 
-// 3. Muat Turun Senarai Pesanan (Orders) dari Firestore
 async function loadAdminOrders() {
     const container = document.getElementById('admin-content');
-    if (!container) return; // Pengawal keselamatan
+    if (!container) return; 
 
     container.innerHTML = `<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-indigo-600"></i><p class="mt-2 text-gray-500">Menyemak pesanan Firestore...</p></div>`;
 
@@ -145,7 +136,6 @@ async function loadAdminOrders() {
     }
 }
 
-// 4. Sahkan Pesanan (Selesaikan & Tolak Koin Murid)
 async function approveOrder(orderDocId, playerDocId, costToDeduct) {
     if(!confirm("Anda pasti ingin mengesahkan penyerahan? Koin pelajar akan ditolak sekarang.")) return;
     
@@ -156,18 +146,17 @@ async function approveOrder(orderDocId, playerDocId, costToDeduct) {
                 coins: firebase.firestore.FieldValue.increment(-costToDeduct)
             });
         }
-        alert("Pesanan berjaya diselesaikan dan koin ditolak!");
+        alert("Order Approved!");
         loadAdminOrders();
     } catch (e) {
         console.error("Approve Error:", e);
-        alert("Gagal mengemaskini status pesanan.");
+        alert("Fail to update order status.");
     }
 }
 
-// 5. Muat Turun Inventori (Stok) dari Firestore
 async function loadAdminInventory() {
     const container = document.getElementById('admin-content');
-    if (!container) return; // Pengawal keselamatan
+    if (!container) return; 
 
     container.innerHTML = `<div class="text-center py-10"><i class="fas fa-spinner fa-spin text-3xl text-indigo-600"></i><p>Memuatkan stok Firestore...</p></div>`;
 
@@ -220,7 +209,6 @@ async function loadAdminInventory() {
     }
 }
 
-// 6. FUNGSI KAWALAN MODAL (TERTINGGAL SEBELUM INI)
 function openAddItemForm() {
     const modal = document.getElementById('admin-item-modal');
     if(modal) modal.classList.remove('hidden');
@@ -253,7 +241,6 @@ function editItem(id) {
     document.getElementById('admin-item-desc').value = item.desc || '';
 }
 
-// 7. Hantar Data Item ke Firestore (Tambah/Kemaskini)
 async function submitItemForm() {
     const btn = document.getElementById('admin-save-item-btn');
     const itemId = document.getElementById('admin-item-id').value.trim().toUpperCase();
@@ -270,7 +257,7 @@ async function submitItemForm() {
     };
 
     if (!itemId || !itemData.name) {
-        alert("Sila isikan ID Item dan Nama Item!");
+        alert("Please complete Item ID and Item Name!");
         return;
     }
 
@@ -280,12 +267,12 @@ async function submitItemForm() {
 
     try {
         await db.collection("eduItems").doc(itemId).set(itemData, { merge: true });
-        alert(`Berjaya! Item ${itemId} telah dikemaskini dalam pangkalan data.`);
+        alert(`Successfull! Item ${itemId} has been updated in the database.`);
         closeItemForm();
         loadAdminInventory(); 
     } catch (e) {
         console.error("Save Item Error:", e);
-        alert("Ralat. Gagal menyimpan ke Firestore.");
+        alert("Error. Failed to save to Firestore.");
     } finally {
         btn.disabled = false;
         btn.innerHTML = originalBtnHTML;
@@ -295,61 +282,39 @@ async function submitItemForm() {
 // ==========================================
 // FUNGSI NAVIGASI TAB KEDAI MURID
 // ==========================================
-/**
- * Fungsi untuk menukar tab di dalam Kedai (Shop)
- * @param {string} tabName - Nama tab (contoh: 'edu', 'avatar', 'badge')
- */
 function switchShopTab(tabName) {
-    // ==========================================
-    // 🎥 CCTV TRACKER: REKOD BUKA KEDAI
-    // ==========================================
     if (window.Trackers) Trackers.rekodBukaKedai();
 
-    // 1. SEMBUNYIKAN semua bahagian kandungan kedai
     document.querySelectorAll('.shop-section').forEach(el => {
         el.classList.add('hidden');
     });
     
-    // 2. RESET gaya butang (kembalikan ke warna asal/tidak aktif)
     document.querySelectorAll('.shop-tab-btn').forEach(btn => {
         btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
         btn.classList.add('bg-gray-200', 'text-gray-500');
     });
 
-    // 3. TUNJUKKAN bahagian kandungan yang dipilih sahaja
     const activeSection = document.getElementById(`shop-content-${tabName}`);
     if (activeSection) {
         activeSection.classList.remove('hidden');
     }
 
-    // 4. AKTIFKAN gaya visual pada butang yang diklik
     const activeBtn = document.getElementById(`tab-btn-${tabName}`);
     if (activeBtn) {
         activeBtn.classList.remove('bg-gray-200', 'text-gray-500');
         activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
     }
 
-    // 5. MUAT DATA secara dinamik mengikut tab yang dipilih
-    // Ini penting supaya item hanya muncul apabila tab diklik
     if (tabName === 'edu') {
-        if (typeof loadShopInventory === 'function') {
-            loadShopInventory(); 
-        }
+        if (typeof loadShopInventory === 'function') loadShopInventory(); 
     } 
     else if (tabName === 'avatar') {
-        if (typeof loadAvatarShop === 'function') {
-            loadAvatarShop(); // Memastikan item avatar cikgu muncul
-        } else {
-            console.error("Fungsi loadAvatarShop tidak dijumpai dalam shop.js");
-        }
+        if (typeof loadAvatarShop === 'function') loadAvatarShop(); 
     } 
     else if (tabName === 'badge') {
-        if (typeof loadMedalShop === 'function') {
-            loadMedalShop(); // <-- Pastikan ini loadMedalShop
-        }
+        if (typeof loadMedalShop === 'function') loadMedalShop(); 
     }
     
-    // Simpan pilihan terakhir murid (Opsional - supaya bila refresh dia tetap di tab sama)
     localStorage.setItem('lastShopTab', tabName);
 }
 
@@ -360,17 +325,14 @@ async function loadShopInventory() {
     const container = document.getElementById('edu-shop-items');
     if (!container) return;
 
-    // Paparan sedang loading
     container.innerHTML = `<div class="text-center col-span-full py-10 text-gray-500">
         <i class="fas fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
         <p>Menyemak stok kedai dari Firebase...</p>
     </div>`;
 
     try {
-        // Ambil data dari koleksi eduItems di Firestore
         const snapshot = await db.collection("eduItems").get();
         
-        // JIKA KEDAI KOSONG (Admin belum letak barang)
         if (snapshot.empty) {
             container.innerHTML = `<div class="text-center col-span-full py-10 text-gray-400">
                 <i class="fas fa-box-open text-5xl mb-3 text-gray-300"></i>
@@ -380,13 +342,11 @@ async function loadShopInventory() {
             return;
         }
 
-        // JIKA ADA BARANG
         let html = "";
         snapshot.forEach(doc => {
             const item = doc.data();
             const isOutOfStock = item.stock <= 0;
             
-            // Bina "Kad Item" untuk setiap barang
             html += `
             <div class="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex flex-col items-center text-center relative overflow-hidden hover:shadow-md transition-all">
                 ${isOutOfStock ? `<div class="absolute top-3 right-[-25px] bg-red-500 text-white text-[10px] font-black px-8 py-1.5 rotate-45 shadow-sm">HABIS</div>` : ''}
@@ -410,13 +370,12 @@ async function loadShopInventory() {
                     onclick="openEduCheckout('${item.id}', '${item.name}', ${item.price})" 
                     class="mt-4 w-full py-2.5 rounded-xl font-bold text-xs transition-all ${isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'}"
                     ${isOutOfStock ? 'disabled' : ''}>
-                    ${isOutOfStock ? 'STOK KOSONG' : 'BELI SEKARANG'}
+                    ${isOutOfStock ? 'STOCK EMPTY' : 'BUY NOW'}
                 </button>
             </div>
             `;
         });
         
-        // Masukkan semua kad item ke dalam HTML
         container.innerHTML = html;
 
     } catch (e) {
@@ -431,16 +390,13 @@ async function loadShopInventory() {
 // ==========================================
 // FUNGSI PAPARAN AVATAR (MENYOKONG GAMBAR & IKON)
 // ==========================================
-
 function loadAvatarShop() {
     const container = document.getElementById('avatar-shop-items');
     if (!container) return;
 
-    // Ambil level dan nama pemain dengan selamat
     const playerLevel = localPlayerData.level || 1;
     const playerName = localPlayerData.name || "";
     
-    // Pastikan memori wujud (untuk semak dah beli atau belum)
     if (!localPlayerData.avatars) localPlayerData.avatars = {};
     if (!localPlayerData.inventory) localPlayerData.inventory = [];
 
@@ -450,32 +406,23 @@ function loadAvatarShop() {
         const category = avatars[key];
         
         category.levels.forEach(item => {
-            // ==========================================
-            // ⭐ LOGIK ITEM RAHSIA (GAME MASTER ONLY)
-            // ==========================================
-            // Jika item ditanda 'isSecret' tapi nama pemain bukan GAME MASTER, kita skip/abaikan.
             if (item.isSecret && playerName.trim().toUpperCase() !== "GAME MASTER") {
                 return; 
             }
 
             const isLocked = playerLevel < item.level;
-            
-            // SEMAK: Adakah avatar ini sudah dibeli?
             const itemKey = `${key}_lvl${item.level}`;
             const isOwned = localPlayerData.inventory.includes(itemKey);
             
-            // AMBIL DATA DENGAN SELAMAT
             const safeImg = item.img ? item.img : '';
             const safeIcon = item.icon ? item.icon : '';
 
-            // PAPARAN VISUAL
             const visual = item.img 
                 ? `<img src="assets/avatars/${item.img}" class="w-16 h-16 object-contain mb-3 ${isLocked ? 'grayscale opacity-50' : ''}">`
                 : `<div class="w-16 h-16 ${isLocked ? 'bg-gray-200 text-gray-400' : 'bg-blue-50 text-blue-600'} rounded-full flex items-center justify-center text-3xl mb-3 border-2 border-dashed shadow-inner">
                     <i class="${isLocked ? 'fas fa-lock' : item.icon}"></i>
                    </div>`;
 
-            // TUKAR RUPA BUTANG (Locked -> Equip -> Beli)
             let buttonHtml = "";
             
             if (isLocked) {
@@ -485,32 +432,28 @@ function loadAvatarShop() {
             } else if (isOwned) {
                 buttonHtml = `<button onclick="equipAvatar('${safeImg}', '${safeIcon}', '${item.name}')" 
                     class="mt-4 w-full py-2 bg-green-500 text-white rounded-xl font-bold text-[10px] hover:bg-green-600 shadow-sm transition-all border-2 border-green-600">
-                    <i class="fas fa-user-check mr-1"></i> PAKAI AVATAR
+                    <i class="fas fa-user-check mr-1"></i> USE AVATAR
                    </button>`;
             } else {
                 buttonHtml = `<button onclick="buyAvatar('${key}', ${item.level}, ${item.price}, '${item.name}')" 
                     class="mt-4 w-full py-2 bg-indigo-600 text-white rounded-xl font-bold text-[10px] hover:bg-indigo-700 shadow-sm transition-all">
-                    BELI GUARDIAN
+                    BUY GUARDIAN
                    </button>`;
             }
 
             html += `
             <div class="bg-white rounded-3xl p-5 shadow-sm border ${isLocked ? 'border-gray-200 bg-gray-50' : 'border-gray-100'} flex flex-col items-center text-center transition-all relative overflow-hidden">
-                
                 <div class="absolute top-0 left-0 w-full ${isLocked ? 'bg-gray-400' : (item.isSecret ? 'bg-yellow-500' : 'bg-indigo-600')} text-white text-[9px] font-bold py-1 uppercase opacity-80">
                     ${isLocked ? 'LOCKED' : (item.isSecret ? '👑 ADMIN ONLY' : category.theme)}
                 </div>
-
                 <div class="mt-4"></div>
                 ${visual}
-                
                 <h4 class="font-bold ${isLocked ? 'text-gray-400' : 'text-gray-800'} text-sm mb-1">${item.name}</h4>
                 <p class="text-[10px] text-gray-400 leading-tight mb-3 h-8 line-clamp-2">${isLocked ? 'Capai tahap yang diperlukan untuk melihat maklumat.' : item.desc}</p>
                 
                 <div class="font-black ${isLocked ? 'text-gray-400' : (isOwned ? 'text-green-500' : 'text-yellow-600')} flex items-center gap-1 text-sm mt-auto pt-3 border-t w-full justify-center">
                     ${isOwned ? '<i class="fas fa-check-circle"></i> DIMILIKI' : `<i class="fas fa-coins text-xs"></i> ${item.price.toLocaleString()}`}
                 </div>
-
                 ${buttonHtml}
             </div>`;
         });
@@ -523,16 +466,13 @@ function loadAvatarShop() {
 // FUNGSI APABILA BUTANG BELI DITEKAN
 // ==========================================
 function buyAvatar(category, level, price, name) {
-    // 1. Guna parseInt() dan panggil localPlayerData BUKAN currentUserData
     let playerLevel = (typeof localPlayerData !== 'undefined' && localPlayerData.level) ? parseInt(localPlayerData.level) : 1;
     let itemLevel = parseInt(level);
 
-    // 2. Kuasa Veto untuk GAME MASTER / ADMIN
     if (typeof studentInfo !== 'undefined' && (studentInfo.name.includes("ADMIN") || studentInfo.name === "GAME MASTER")) {
-        playerLevel = 999; // Beri level maksimum rahsia supaya Admin boleh beli semua!
+        playerLevel = 999; 
     }
 
-    // Sekatan Level (Kini membandingkan nombor dengan tepat)
     if (playerLevel < itemLevel) {
         Swal.fire({
             title: 'Tahap Tidak Mencukupi!',
@@ -553,8 +493,6 @@ function buyAvatar(category, level, price, name) {
     }).then((result) => {
         if (result.isConfirmed) {
             processPurchase(category, level, price); 
-            // PENTING: Pembayaran sebenar berlaku di dalam processPurchase().
-            // Jadi Trackers.rekodKoinBelanja mesti diletakkan di dalam processPurchase() itu sendiri!
         }
     });
 }
@@ -563,7 +501,6 @@ function buyAvatar(category, level, price, name) {
 // FUNGSI JURUWANG KEDAI (PROCESS PURCHASE)
 // ==========================================
 function processPurchase(category, level, price) {
-    // 1. Semak sama ada koin mencukupi
     if (localPlayerData.coins < price) {
         Swal.fire({
             icon: 'error',
@@ -571,49 +508,36 @@ function processPurchase(category, level, price) {
             text: 'Sila main lebih banyak permainan untuk kumpul koin.',
             confirmButtonColor: '#ef4444'
         });
-        return; // Hentikan proses jika tak cukup duit
+        return; 
     }
 
-    // 2. Tolak duit koin dari dompet murid
     localPlayerData.coins -= price;
 
-    // ==========================================
-    // 🎥 CCTV TRACKER: REKOD KOIN DIBELANJAKAN
-    // ==========================================
     if (window.Trackers) {
         Trackers.rekodKoinBelanja(price);
     }
 
-    // 3. Masukkan item ke dalam Inventori / Avatars murid
-    // Pastikan fail memori wujud supaya tidak ralat
     if (!localPlayerData.avatars) localPlayerData.avatars = {};
     if (!localPlayerData.inventory) localPlayerData.inventory = [];
 
-    // Simpan rekod avatar yang dibeli mengikut kategori dan tahap
     localPlayerData.avatars[category] = {
         level: level,
         purchasedAt: new Date().toISOString()
     };
 
-    // (Pilihan) Simpan juga jejak dalam bentuk senarai inventori 
     const itemKey = `${category}_lvl${level}`;
     if (!localPlayerData.inventory.includes(itemKey)) {
         localPlayerData.inventory.push(itemKey);
     }
 
-    // ==========================================
-    // 🎥 CCTV TRACKER: REKOD DATA AVATAR BARU
-    // ==========================================
     if (window.Trackers) {
         Trackers.rekodDataAvatar();
     }
 
-// 4. Kemas kini tulisan koin di skrin terus (Guna updateUI supaya semua tempat berubah)
     if (typeof updateUI === 'function') {
         updateUI(); 
     }
 
-    // 5. Berikan notifikasi berjaya
     Swal.fire({
         icon: 'success',
         title: 'Pembelian Berjaya! 🎉',
@@ -621,14 +545,11 @@ function processPurchase(category, level, price) {
         confirmButtonColor: '#22c55e'
     });
 
-    // 6. Simpan data ke Cloud & LocalStorage
     localStorage.setItem('currentPlayer', JSON.stringify(localPlayerData));
     if (typeof saveCloudPlayerData === 'function') {
         saveCloudPlayerData();
     }
 
-    // 7. ⭐ KEMASKINI BUTANG KEDAI (NAMA FUNGSI KENA BETUL)
-    // Kita panggil nama fungsi yang cikgu berikan tadi: loadAvatarShop
     if (typeof loadAvatarShop === 'function') {
         loadAvatarShop();
     }
@@ -637,9 +558,7 @@ function processPurchase(category, level, price) {
 // ==========================================
 // FUNGSI BUKA & TUTUP MODAL CHECKOUT EDU SHOP
 // ==========================================
-
 function openEduCheckout(id, name, price) {
-    // 1. Masukkan data item ke dalam borang (form) tersembunyi
     const idInput = document.getElementById('eduItemID');
     const nameInput = document.getElementById('eduItemName');
     const priceInput = document.getElementById('eduBasePrice');
@@ -648,157 +567,242 @@ function openEduCheckout(id, name, price) {
     if (nameInput) nameInput.value = name;
     if (priceInput) priceInput.value = price;
 
-    // 2. Set kuantiti lalai kepada 1
     const qtyInput = document.getElementById('eduQuantity');
     if (qtyInput) qtyInput.value = 1;
 
-    // 3. Auto-isi nama murid dari sistem
     const studentNameInput = document.getElementById('eduStudentName');
     if (studentNameInput && typeof studentInfo !== 'undefined') {
         studentNameInput.value = studentInfo.name;
     }
 
-    // 4. Buka paparan Modal Checkout
     const modal = document.getElementById('edu-checkout-modal');
     if (modal) {
         modal.classList.remove('hidden');
-        modal.classList.add('flex'); // Buka sebagai flexbox supaya berada di tengah
+        modal.classList.add('flex'); 
     } else {
         console.error("Ralat UI: Kotak modal 'edu-checkout-modal' tidak dijumpai dalam HTML.");
-        alert("Ralat Sistem: Borang pembelian tidak wujud di skrin.");
     }
 }
 
 function closeEduCheckout() {
-    // Tutup paparan Modal Checkout
     const modal = document.getElementById('edu-checkout-modal');
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
     
-    // Reset semula keadaan butang 'Sahkan' jika ia tersangkut masa loading
     if (typeof resetConfirmBtn === 'function') {
         resetConfirmBtn();
     }
 }
 
+// ==========================================
+// 🔥 FUNGSI SEMAK SYARAT LENCANA (DIKEMASKINI & DISELARASKAN DENGAN FIRESTORE)
+// ==========================================
 function checkMedalRequirement(reqType, reqValue) {
-    if (!localPlayerData) return false;
+    if (typeof localPlayerData === 'undefined' || !localPlayerData) return false;
 
-    // Ambil data asas atau set ke 0 jika tiada
-    const stats = {
-        level: parseInt(localPlayerData.level) || 1,
-        totalScore: parseInt(localPlayerData.totalScore) || 0,
-        totalGames: parseInt(localPlayerData.totalGames) || 0,
-        perfectScores: parseInt(localPlayerData.perfectScores) || 0,
-        coins: parseInt(localPlayerData.coins) || 0,
-        totalCoinsEarned: parseInt(localPlayerData.totalCoinsEarned) || 0,
-        challengesSent: parseInt(localPlayerData.challengesSent) || 0,
-        challengesWon: parseInt(localPlayerData.challengesWon) || 0,
-        challengesTied: parseInt(localPlayerData.challengesTied) || 0,
-        challengesLost: parseInt(localPlayerData.challengesLost) || 0,
-        totalChallenges: parseInt(localPlayerData.totalChallenges) || 0,
-        loginStreak: parseInt(localPlayerData.loginStreak) || 0,
-        loginCount: parseInt(localPlayerData.loginCount) || 0,
-        spendCoins: parseInt(localPlayerData.totalSpent) || 0,
-        rank: parseInt(localPlayerData.rank) || 999, // Semakin kecil semakin bagus
-        uniqueGames: (localPlayerData.playedGamesList) ? localPlayerData.playedGamesList.length : 0,
-        
-        // 👇👇👇 INI YANG KITA UBAH 👇👇👇
-        // Sekarang ia terus baca nombor dari CCTV trackers.js
-        unlockedAvatars: parseInt(localPlayerData.unlockedAvatarsCount) || 0,
-        
-        dailyGames: parseInt(localPlayerData.dailyGamesCount) || 0
-    };
-
-    // 👇👇👇 PENGINTIP KHAS KITA LETAK DI SINI 👇👇👇
-    if (reqType === 'total_score') {
-        console.log(`[PENGINTIP] Syarat: ${reqValue} | Markah Murid: ${stats.totalScore} | Keputusan: ${stats.totalScore >= reqValue}`);
-    }
+    let conditionMet = false;
+    const target = reqValue;
+    const currentMonth = new Date().getMonth() + 1; // 1-12
 
     switch (reqType) {
-        // --- Statistik Asas ---
-        case 'level': return stats.level >= reqValue;
-        case 'total_score': return stats.totalScore >= reqValue;
-        case 'total_games': return stats.totalGames >= reqValue;
-        case 'perfect_scores': return stats.perfectScores >= reqValue;
-        case 'total_coins': return stats.coins >= reqValue;
-        case 'total_coins_earned': return stats.totalCoinsEarned >= reqValue;
-        case 'unique_games': return stats.uniqueGames >= reqValue;
-        case 'spend_coins': return stats.spendCoins >= reqValue;
+        case "total_score":
+            if ((Number(localPlayerData.totalScore) || 0) >= target) conditionMet = true;
+            break;
+        case "perfect_scores":
+            if ((Number(localPlayerData.perfectScores) || 0) >= target) conditionMet = true;
+            break;
+        case "total_games":
+            if ((Number(localPlayerData.totalGames) || 0) >= target) conditionMet = true;
+            break;
+        case "send_challenge":
+            if ((Number(localPlayerData.challengesSent) || 0) >= target) conditionMet = true;
+            break;
+        case "win_challenge":
+            if ((Number(localPlayerData.challengesWon) || 0) >= target) conditionMet = true;
+            break;
+        case "total_challenges":
+            if ((Number(localPlayerData.totalChallenges) || 0) >= target) conditionMet = true;
+            break;
+        case "lose_challenge":
+            if ((Number(localPlayerData.challengesLost) || 0) >= target) conditionMet = true;
+            break;
+        case "total_coins": 
+            if ((Number(localPlayerData.coins) || 0) >= target) conditionMet = true;
+            break;
 
-        // --- Cabaran (Challenges) ---
-        case 'send_challenge': return stats.challengesSent >= reqValue;
-        case 'win_challenge': return stats.challengesWon >= reqValue;
-        case 'tie_challenge': return stats.challengesTied >= reqValue;
-        case 'lose_challenge': return stats.challengesLost >= reqValue;
-        case 'total_challenges': return stats.totalChallenges >= reqValue;
-        case 'comeback_win': return localPlayerData.hasDoneComeback === true;
-        case 'revenge_win': return localPlayerData.hasDoneRevenge === true;
-        case 'narrow_win': return localPlayerData.hasDoneNarrowWin === true;
+        // 🔥 Diselaraskan: total_earned & total_coins_earned (ach_12)
+        case "total_earned": 
+        case "total_coins_earned":
+            if ((Number(localPlayerData.totalCoinsEarned) || 0) >= target) conditionMet = true;
+            break;
 
-        // --- Avatar ---
-        case 'unlock_avatar': return stats.unlockedAvatars >= reqValue;
-        case 'avatar_level': return (localPlayerData.maxAvatarLevel || 1) >= reqValue;
-        case 'multiple_avatar_level': return (localPlayerData.avatarsAtLevel5 || 0) >= reqValue;
-        case 'all_avatars': return stats.unlockedAvatars >= 12; // Andaikan ada 12 avatar
-        case 'rare_skin': return localPlayerData.hasRareSkin === true;
+        // 🔥 Diselaraskan: total_spent & spend_coins (ach_11)
+        case "total_spent":
+        case "spend_coins":
+            if ((Number(localPlayerData.totalSpent) || 0) >= target) conditionMet = true;
+            break;
 
-        // --- Login & Masa ---
-        case 'login_streak': return stats.loginStreak >= reqValue;
-        case 'login_count': return stats.loginCount >= reqValue;
-        case 'daily_games': return stats.dailyGames >= reqValue;
-        case 'play_time_late': return localPlayerData.hasPlayedLate === true;
-        case 'play_time_early': return localPlayerData.hasPlayedEarly === true;
-        case 'play_weekend': return localPlayerData.hasPlayedWeekend === true;
-        case 'play_month': return new Date().getMonth() + 1 === reqValue; // Semak bulan semasa
-        case 'merdeka_day': return localPlayerData.hasPlayedMerdeka === true;
+        // ==========================================
+        // 🌟 KEMASKINI KRITIKAL: LOGIK AVATAR FIRESTORE
+        // ==========================================
+        
+        // 🔥 Lencana Kiraan Avatar (ach_13, ach_14, ach_16, ach_34)
+        case "avatar_count":
+        case "unlock_avatar":
+        case "all_avatars":
+        case "all_standard_avatars":
+            let avatarCount = 0;
+            // Pengadil tolong kirakan berapa banyak avatar dalam map "avatars"
+            if (localPlayerData.avatars) {
+                avatarCount = Object.keys(localPlayerData.avatars).length;
+            }
+            if (avatarCount >= target) conditionMet = true;
+            break;
 
-        // --- Lain-lain ---
-        case 'rank': return stats.rank <= reqValue; // Untuk Rank, lebih kecil lebih bagus (Rank 1 < Rank 3)
-        case 'visit_shop': return (localPlayerData.shopVisits || 0) >= reqValue;
-        case 'hidden_secret': return localPlayerData.foundSecret === true;
-        case 'special_event': return localPlayerData.playedEvent === true;
-        case 'high_score_all': return (localPlayerData.gamesWithScore50Plus || 0) >= reqValue;
-        case 'polymath': return (localPlayerData.gamesWithScore50Plus || 0) >= 12;
+        // 🔥 Lencana Max Level Avatar (ach_15 - Max Power)
+        case "avatar_level": 
+            let maxLvl = 0;
+            // Pengadil cari level paling tinggi dari semua avatar yang ada
+            if (localPlayerData.avatars) {
+                for (let key in localPlayerData.avatars) {
+                    let lvl = localPlayerData.avatars[key].level || 0;
+                    if (lvl > maxLvl) maxLvl = lvl;
+                }
+            }
+            if (maxLvl >= target) conditionMet = true;
+            break;
 
+        // 🔥 Lencana Multiple Avatar Max Level (ach_35 - Elite Squad)
+        case "avatars_at_level": 
+        case "multiple_avatar_level":
+            let avatarsAtMaxLevel = 0;
+            // Pengadil kira berapa banyak avatar yang sudah mencapai level 10
+            if (localPlayerData.avatars) {
+                for (let key in localPlayerData.avatars) {
+                    let lvl = localPlayerData.avatars[key].level || 0;
+                    if (lvl >= 10) avatarsAtMaxLevel++;
+                }
+            }
+            if (avatarsAtMaxLevel >= target) conditionMet = true; 
+            break;
+
+        // 🔥 Lencana Baru: Loyal Companion (ach_36)
+        case "avatar_streak":
+            if ((Number(localPlayerData.avatarStreak) || 0) >= target) conditionMet = true;
+            break;
+
+        // ==========================================
+
+        case "login_streak":
+            if ((Number(localPlayerData.loginStreak) || 0) >= target) conditionMet = true;
+            break;
+        case "daily_games":
+            if ((Number(localPlayerData.dailyGamesCount) || 0) >= target) conditionMet = true;
+            break;
+        case "unique_games": 
+            if (((localPlayerData.playedGamesList || []).length) >= target) conditionMet = true;
+            break;
+
+        // 🔥 Diselaraskan: score_threshold & high_score_all (ach_25)
+        case "score_threshold": 
+        case "high_score_all":
+            if ((Number(localPlayerData.gamesWithScore50Plus) || 0) >= target) conditionMet = true;
+            break;
+
+        case "play_time_late": 
+            if (localPlayerData.hasPlayedLate) conditionMet = true;
+            break;
+        case "play_time_early": 
+            if (localPlayerData.hasPlayedEarly) conditionMet = true;
+            break;
+
+        // 🔥 Diselaraskan: weekend_play & play_weekend (ach_20)
+        case "weekend_play":
+        case "play_weekend":
+            if (localPlayerData.hasPlayedWeekend) conditionMet = true;
+            break;
+
+        case "merdeka_day":
+            if (localPlayerData.hasPlayedMerdeka) conditionMet = true;
+            break;
+        case "play_month":
+            if (localPlayerData.hasPlayedDecember && target === 12) conditionMet = true;
+            else if (currentMonth === target) conditionMet = true;
+            break;
+
+        // 🔥 Diselaraskan: shop_visits & visit_shop (ach_33)
+        case "shop_visits":
+        case "visit_shop":
+            if ((Number(localPlayerData.shopVisits) || 0) >= target) conditionMet = true;
+            break;
+            
+        case "first_login":
+            if ((Number(localPlayerData.loginCount) || 0) >= 1 || localPlayerData.name) {
+                conditionMet = true;
+            }
+            break;
+
+        case "event_play":
+        case "special_event":
+            if (localPlayerData.hasPlayedEvent) conditionMet = true;
+            break;
+
+        case "special_avatar":
+            if (localPlayerData.hasSecretAvatar) conditionMet = true;
+            break;
+
+        case "rank":
+        case "leaderboard_rank": 
+            const cRank = Number(localPlayerData.currentRank) || 999;
+            const bRank = Number(localPlayerData.bestRank) || 999;
+            const actualRank = Math.min(cRank, bRank);
+            if (actualRank > 0 && actualRank <= target) {
+                conditionMet = true;
+            }
+            break;
+            
+        case "tie_challenge":
+            if (localPlayerData.lastGameResult === 'tie') conditionMet = true;
+            break;
+        case "comeback_win":
+            if (localPlayerData.hasDoneComeback) conditionMet = true;
+            break;
+        case "narrow_win":
+            if (localPlayerData.hasDoneNarrowWin) conditionMet = true;
+            break;
+        case "revenge_win":
+            if (localPlayerData.hasDoneRevenge) conditionMet = true;
+            break;
+        case "hidden_secret":
+            if (localPlayerData.foundSecret) conditionMet = true;
+            break;
+            
         default:
-            return false;
+            conditionMet = false;
     }
+
+    return conditionMet;
 }
 
+// ==========================================
+// FUNGSI MELUKIS KEDAI LENCANA
+// ==========================================
 function loadMedalShop() {
-    console.log("--- PENGESAN MEDAL SHOP BERMULA ---");
-    
-    // Langkah 1: Cari bekas (container) dalam HTML
     const container = document.getElementById('medal-shop-container');
-    console.log("1. Bekas HTML (Container):", container ? "Dijumpai!" : "TIDAK JUMPA!");
     
-    if (!container) {
-        console.warn("Sistem berhenti kerana ID 'medalShopContainer' tiada dalam HTML index.html");
-        return; // Berhenti senyap jika tiada bekas
-    }
-
-    // Langkah 2: Semak data lencana
-    console.log("2. Data Lencana (achievementsData):", typeof achievementsData !== 'undefined' ? "Ada" : "Tiada");
-    if (typeof achievementsData === 'undefined') {
-        container.innerHTML = '<p class="text-red-500 text-center">Senarai lencana tiada dalam config.js</p>';
+    if (!container) return; 
+    if (typeof achievementsData === 'undefined' || !localPlayerData) {
+        container.innerHTML = '<p class="text-gray-500 text-center">Memuat turun profil & data...</p>';
         return;
     }
 
-    // Langkah 3: Semak data profil pemain
-    console.log("3. Data Pemain (localPlayerData):", localPlayerData ? "Sedia" : "Belum Sedia");
-    if (!localPlayerData) {
-        container.innerHTML = '<p class="text-gray-500 text-center">Memuat turun profil...</p>';
-        return;
-    }
-
-    // Jika sampai ke sini, bermakna semua lulus! Mula melukis.
-    console.log("4. Semua lulus! Mula melukis lencana di skrin...");
-    container.innerHTML = ''; // Buang teks "Memuatkan..."
-
+    container.innerHTML = ''; 
     const playerInventory = Array.isArray(localPlayerData.inventory) ? localPlayerData.inventory : [];
+
+console.log("Perfect Scores:", localPlayerData.perfectScores);
+console.log("Played On Weekend:", localPlayerData.playedOnWeekend);
 
     achievementsData.forEach(item => {
         const isOwned = playerInventory.includes(item.id);
@@ -808,7 +812,7 @@ function loadMedalShop() {
         if (isOwned) {
             buttonHTML = `<button class="w-full py-2 bg-gray-400 text-white rounded-lg cursor-not-allowed font-bold text-sm" disabled>Sudah Dimiliki</button>`;
         } else if (isUnlocked) {
-            buttonHTML = `<button onclick="buyMedal('${item.id}', ${item.price}, '${item.name}')" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition">Beli: ${item.price} Koin</button>`;
+buttonHTML = `<button onclick="buyMedal('${item.id}', ${item.price}, \`${item.name}\`)" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition">Beli: ${item.price} Koin</button>`;
         } else {
             buttonHTML = `<button class="w-full py-2 bg-gray-300 text-gray-600 rounded-lg cursor-not-allowed font-bold text-sm" disabled><i class="fas fa-lock mr-1"></i>Terkunci</button>`;
         }
@@ -830,10 +834,11 @@ function loadMedalShop() {
         `;
         container.innerHTML += card;
     });
-    
-    console.log("--- LUKISAN SELESAI ---");
 }
 
+// ==========================================
+// FUNGSI PEMBELIAN LENCANA (DITAMBAH TRACKER)
+// ==========================================
 function buyMedal(id, price, name) {
     if (localPlayerData.coins < price) {
         Swal.fire('Koin Tidak Cukup!', 'Teruskan bermain untuk kumpul koin.', 'error');
@@ -848,17 +853,25 @@ function buyMedal(id, price, name) {
         confirmButtonText: 'Ya, Milikinya!'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Tolak koin
+            
             localPlayerData.coins -= price;
             
-            // Masukkan ke inventori
+            // Rekodkan koin yang dibelanjakan ke dalam Tracker
+            if (window.Trackers) {
+                Trackers.rekodKoinBelanja(price);
+            }
+            
             if (!localPlayerData.inventory) localPlayerData.inventory = [];
             localPlayerData.inventory.push(id);
 
-            // Simpan data
-            saveCloudPlayerData();
-            updateUI(); // Kemas kini paparan koin di skrin
-            loadMedalShop(); // Lukis semula kedai supaya butang berubah jadi 'Milik'
+            if (typeof saveCloudPlayerData === 'function') {
+                saveCloudPlayerData();
+            } else if (typeof syncDataToFirestore === 'function') {
+                syncDataToFirestore();
+            }
+
+            if (typeof updateUI === 'function') updateUI(); 
+            loadMedalShop(); 
 
             Swal.fire('Berjaya!', 'Lencana kini milik anda. Syabas!', 'success');
         }

@@ -1,202 +1,146 @@
 // ==========================================
-// PUSAT KAWALAN DATA (TRACKERS)
+// TRACKERS.JS - FUNGSI PAPARAN & PENGUMPUL DATA
 // ==========================================
-// Fail ini menguruskan semua jejak aktiviti murid untuk lencana (achievements).
 
-window.Trackers = {
+window.Trackers = window.Trackers || {};
 
-    // ----------------------------------------------------
-    // 1. FUNGSI PENYELAMAT DATA (SAVE HELPER)
-    // ----------------------------------------------------
-    // Fungsi ini dipanggil setiap kali ada data baru untuk terus simpan ke Firestore
-    saveData: function() {
-        if (typeof saveCloudPlayerData === "function") {
-            saveCloudPlayerData();
-        } else if (typeof syncDataToFirestore === "function") {
-            syncDataToFirestore();
-        }
-    },
+// ==========================================
+// 1. FUNGSI PAPARAN (UI) - UNTUK PAPAR LENCANA
+// ==========================================
+function showAchievementsScreen() {
+    const screensToHide = ['menu-screen', 'game-screen', 'leaderboard-screen', 'shop-screen'];
+    screensToHide.forEach(id => {
+        const screen = document.getElementById(id);
+        if (screen) screen.classList.add('hidden');
+    });
 
-    // ----------------------------------------------------
-    // 2. JEJAK LOG MASUK & MASA (LOGIN & TIME)
-    // ----------------------------------------------------
-    rekodLogin: function() {
-        if (!window.localPlayerData) return;
-        
-        const now = new Date();
-        const hour = now.getHours();
-        const month = now.getMonth() + 1; // 1-12
-        const date = now.getDate();
-        const day = now.getDay(); // 0 = Ahad, 6 = Sabtu
+    const achScreen = document.getElementById('achievements-screen');
+    if (achScreen) achScreen.classList.remove('hidden');
 
-        // Tambah jumlah login
-        localPlayerData.loginCount = (Number(localPlayerData.loginCount) || 0) + 1;
+    if (typeof checkAndUnlockAchievements === 'function') checkAndUnlockAchievements();
+    renderAchievements();
+}
 
-        // Semak Waktu Main (Awal Pagi < 7 AM, Lewat Malam >= 10 PM)
-        if (hour < 7) localPlayerData.hasPlayedEarly = true;
-        if (hour >= 22) localPlayerData.hasPlayedLate = true;
+function closeAchievementsScreen() {
+    const achScreen = document.getElementById('achievements-screen');
+    if (achScreen) achScreen.classList.add('hidden');
+    const mainMenu = document.getElementById('menu-screen');
+    if (mainMenu) mainMenu.classList.remove('hidden');
+}
 
-        // Semak Hujung Minggu
-        if (day === 0 || day === 6) localPlayerData.hasPlayedWeekend = true;
+function renderAchievements() {
+    const listContainer = document.getElementById('achievements-list');
+    if (!listContainer) return;
+    listContainer.innerHTML = '';
 
-        // Semak Merdeka (31 Ogos) & Bulan Disember
-        if (date === 31 && month === 8) localPlayerData.hasPlayedMerdeka = true;
-        if (month === 12) localPlayerData.hasPlayedDecember = true; 
+    if (typeof localPlayerData === 'undefined' || !localPlayerData) return;
+    const unlockedList = localPlayerData.achievements || [];
+    const allMedals = (typeof achievementsData !== 'undefined') ? achievementsData : [];
 
-        this.saveData();
-    },
+    allMedals.forEach(ach => {
+        const isUnlocked = unlockedList.includes(ach.id);
+        const card = document.createElement('div');
+        card.className = `p-4 rounded-xl border-2 flex flex-col items-center text-center transition-all ${
+            isUnlocked ? 'bg-white border-yellow-400 shadow-lg scale-105' : 'bg-gray-100 border-gray-300 opacity-60'
+        }`;
 
-    rekodStreakHarian: function(loginBerterusan, avatarBerterusan) {
-        // Dipanggil oleh auth.js semasa login harian
-        if (!window.localPlayerData) return;
-        localPlayerData.loginStreak = loginBerterusan;
-        localPlayerData.avatarStreak = avatarBerterusan;
-        this.saveData();
-    },
+        card.innerHTML = `
+            <div class="text-4xl mb-2 ${isUnlocked ? '' : 'grayscale'}">${ach.icon || '🏆'}</div>
+            <h3 class="font-bold text-sm ${isUnlocked ? 'text-gray-800' : 'text-gray-500'}">${ach.name}</h3>
+            <p class="text-[10px] text-gray-500 mt-1">${ach.description}</p>
+            ${isUnlocked ? '<span class="mt-2 text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-bold">DIBUKA</span>' : ''}
+        `;
+        listContainer.appendChild(card);
+    });
+}
 
-    // ----------------------------------------------------
-    // 3. JEJAK PERMAINAN (GAME & SCORE)
-    // ----------------------------------------------------
-    rekodTamatGame: function(gameId, markah, isPerfect) {
-        if (!window.localPlayerData) return;
+// ==========================================
+// 2. PENYAMBUNG ASAL (UNTUK ELAK RALAT SHOP/AUTH/GAME)
+// ==========================================
+window.Trackers.rekodLogin = function() { trackLoginStreak(); };
+window.Trackers.rekodBukaKedai = function() { trackShopVisit(); };
+window.Trackers.rekodKoinBelanja = function(amount) { trackCoinsSpent(amount); };
+window.Trackers.rekodKoinDapat = function(amount) { trackCoinsEarned(amount); };
+window.Trackers.rekodDataAvatar = function() { 
+    if (typeof checkAndUnlockAchievements === 'function') checkAndUnlockAchievements(); 
+};
 
-        // Tambah Markah dan Jumlah Game
-        localPlayerData.totalScore = (Number(localPlayerData.totalScore) || 0) + markah;
-        localPlayerData.totalGames = (Number(localPlayerData.totalGames) || 0) + 1;
-        localPlayerData.dailyGamesCount = (Number(localPlayerData.dailyGamesCount) || 0) + 1;
+// 🔥 INI PENYAMBUNG BARU UNTUK MENYELESAIKAN RALAT BUTANG CHECK ANSWER 🔥
+window.Trackers.rekodTamatGame = function(gameType, score) { 
+    trackGamePlay(gameType, score); 
+};
 
-        // Semak Markah Penuh (Perfect Score)
-        if (isPerfect) {
-            localPlayerData.perfectScores = (Number(localPlayerData.perfectScores) || 0) + 1;
-        }
+// ==========================================
+// 3. TRACKER KEDUDUKAN LEADERBOARD
+// ==========================================
+window.Trackers.rekodKedudukanLeaderboard = function(currentRank) {
+    if (typeof localPlayerData === 'undefined' || !localPlayerData) return;
+    let bestRank = localPlayerData.bestRank || 9999;
+    let isNewBest = false;
 
-        // Semak Senarai Game Unik yang dimainkan
-        if (!localPlayerData.playedGamesList) localPlayerData.playedGamesList = [];
-        if (!localPlayerData.playedGamesList.includes(gameId)) {
-            localPlayerData.playedGamesList.push(gameId);
-        }
+    localPlayerData.currentRank = currentRank;
+    if (currentRank < bestRank) {
+        localPlayerData.bestRank = currentRank;
+        isNewBest = true;
+    }
 
-        // Semak Game yang mendapat markah 50 ke atas (Untuk lencana Polymath)
-        if (markah >= 50) {
-            if (!localPlayerData.highScoreGamesList) localPlayerData.highScoreGamesList = [];
-            if (!localPlayerData.highScoreGamesList.includes(gameId)) {
-                localPlayerData.highScoreGamesList.push(gameId);
-            }
-            localPlayerData.gamesWithScore50Plus = localPlayerData.highScoreGamesList.length;
-        }
+    if (typeof saveDataToFirestore === 'function') {
+        saveDataToFirestore();
+    } else if (typeof saveCloudPlayerData === 'function') {
+        saveCloudPlayerData();
+    }
 
-        this.saveData();
-    },
-
-    // ----------------------------------------------------
-    // 4. JEJAK EKONOMI & KEDAI (SHOP & ECONOMY)
-    // ----------------------------------------------------
-    rekodBukaKedai: function() {
-        if (!window.localPlayerData) return;
-        localPlayerData.shopVisits = (Number(localPlayerData.shopVisits) || 0) + 1;
-        this.saveData();
-    },
-
-    rekodKoinDapat: function(jumlah) {
-        if (!window.localPlayerData) return;
-        localPlayerData.totalCoinsEarned = (Number(localPlayerData.totalCoinsEarned) || 0) + jumlah;
-        // Baki koin (localPlayerData.coins) diuruskan di tempat lain, di sini cuma track jumlah keseluruhan yang pernah diraih
-        this.saveData();
-    },
-
-    rekodKoinBelanja: function(jumlah) {
-        if (!window.localPlayerData) return;
-        localPlayerData.totalSpent = (Number(localPlayerData.totalSpent) || 0) + jumlah;
-        this.saveData();
-    },
-
-    // ----------------------------------------------------
-    // 5. JEJAK AVATAR (AVATAR COLLECTION)
-    // ----------------------------------------------------
-    rekodDataAvatar: function() {
-        // Dipanggil setiap kali lepas beli/upgrade avatar
-        if (!window.localPlayerData) return;
-
-        let levelPalingTinggi = 1;
-        let bilanganLevel5 = 0;
-        let jumlahAvatarDibuka = 0;
-
-        // Semak di dalam objek 'avatars' mengikut format Firestore cikgu
-        if (localPlayerData.avatars) {
-            const senaraiAvatar = Object.keys(localPlayerData.avatars);
-            jumlahAvatarDibuka = senaraiAvatar.length;
-
-            senaraiAvatar.forEach(namaAvatar => {
-                const levelAvatar = localPlayerData.avatars[namaAvatar].level || 1;
-                
-                // Cari level paling tinggi (Untuk ach_15 - Max Level 10)
-                if (levelAvatar > levelPalingTinggi) {
-                    levelPalingTinggi = levelAvatar;
-                }
-                
-                // Kira berapa avatar capai level 5 (Untuk ach_35 - Elite Squad)
-                if (levelAvatar >= 5) {
-                    bilanganLevel5++;
-                }
-            });
-        }
-
-        localPlayerData.maxAvatarLevel = levelPalingTinggi;
-        localPlayerData.avatarsAtLevel5 = bilanganLevel5;
-        localPlayerData.unlockedAvatarsCount = jumlahAvatarDibuka; 
-        
-        this.saveData();
-    },
-
-    // ----------------------------------------------------
-    // 6. JEJAK CABARAN (CHALLENGE MODE)
-    // ----------------------------------------------------
-    rekodHantarCabaran: function() {
-        if (!window.localPlayerData) return;
-        localPlayerData.challengesSent = (Number(localPlayerData.challengesSent) || 0) + 1;
-        localPlayerData.totalChallenges = (Number(localPlayerData.totalChallenges) || 0) + 1;
-        this.saveData();
-    },
-
-    rekodKeputusanCabaran: function(keputusan, isNarrow = false, isComeback = false, isRevenge = false) {
-        if (!window.localPlayerData) return;
-        
-        localPlayerData.totalChallenges = (Number(localPlayerData.totalChallenges) || 0) + 1;
-
-        if (keputusan === 'win') {
-            localPlayerData.challengesWon = (Number(localPlayerData.challengesWon) || 0) + 1;
-            if (isNarrow) localPlayerData.hasDoneNarrowWin = true;
-            if (isComeback) localPlayerData.hasDoneComeback = true;
-            if (isRevenge) localPlayerData.hasDoneRevenge = true;
-        } 
-        else if (keputusan === 'lose') {
-            localPlayerData.challengesLost = (Number(localPlayerData.challengesLost) || 0) + 1;
-        } 
-        else if (keputusan === 'tie') {
-            localPlayerData.challengesTied = (Number(localPlayerData.challengesTied) || 0) + 1;
-        }
-
-        this.saveData();
-    },
-
-    // ----------------------------------------------------
-    // 7. JEJAK ISTIMEWA (SPECIAL & HIDDEN)
-    // ----------------------------------------------------
-    rekodRahsiaDitemui: function() {
-        if (!window.localPlayerData) return;
-        localPlayerData.foundSecret = true;
-        this.saveData();
-    },
-
-    rekodEventDimainkan: function() {
-        if (!window.localPlayerData) return;
-        localPlayerData.playedEvent = true;
-        this.saveData();
-    },
-
-    rekodRank: function(rankNombor) {
-        if (!window.localPlayerData) return;
-        localPlayerData.rank = rankNombor;
-        this.saveData();
+    if (isNewBest && typeof checkAndUnlockAchievements === 'function') {
+        checkAndUnlockAchievements(); 
     }
 };
+
+// ==========================================
+// 4. SEMUA TRACKER LAIN (GAMEPLAY, KOIN, LOG)
+// ==========================================
+function trackGamePlay(gameType, score) {
+    if (!localPlayerData) return;
+    if (!localPlayerData.games) localPlayerData.games = {};
+    if (!localPlayerData.games[gameType]) localPlayerData.games[gameType] = { count: 0, highScore: 0 };
+    localPlayerData.games[gameType].count++;
+    if (score > localPlayerData.games[gameType].highScore) localPlayerData.games[gameType].highScore = score;
+
+    localPlayerData.gamesPlayedToday = (Number(localPlayerData.gamesPlayedToday) || 0) + 1;
+    localPlayerData.totalScore = (Number(localPlayerData.totalScore) || 0) + score;
+    if (score >= 50) localPlayerData.perfectScores = (Number(localPlayerData.perfectScores) || 0) + 1;
+
+    if (typeof checkAndUnlockAchievements === 'function') checkAndUnlockAchievements();
+    if (typeof saveDataToFirestore === 'function') saveDataToFirestore();
+    else if (typeof saveCloudPlayerData === 'function') saveCloudPlayerData();
+}
+
+function trackCoinsEarned(amount) {
+    if (!localPlayerData) return;
+    localPlayerData.totalCoinsEarned = (Number(localPlayerData.totalCoinsEarned) || 0) + amount;
+}
+
+function trackCoinsSpent(amount) {
+    if (!localPlayerData) return;
+    localPlayerData.totalSpent = (Number(localPlayerData.totalSpent) || 0) + amount;
+}
+
+function trackShopVisit() {
+    if (!localPlayerData) return;
+    localPlayerData.shopVisits = (Number(localPlayerData.shopVisits) || 0) + 1;
+}
+
+function trackLoginStreak() {
+    if (!localPlayerData) return;
+    const today = new Date().toDateString();
+    if (localPlayerData.lastLoginDate !== today) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        if (localPlayerData.lastLoginDate === yesterday.toDateString()) {
+            localPlayerData.loginStreak = (Number(localPlayerData.loginStreak) || 0) + 1; 
+        } else {
+            localPlayerData.loginStreak = 1; 
+        }
+        localPlayerData.lastLoginDate = today;
+        localPlayerData.loginCount = (Number(localPlayerData.loginCount) || 0) + 1;
+    }
+}

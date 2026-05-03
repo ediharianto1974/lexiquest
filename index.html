@@ -95,18 +95,18 @@
     </div>
 </div>
 
-            <div id="dashboard-super-admin" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
+<div id="dashboard-super-admin" class="grid grid-cols-2 md:grid-cols-4 gap-4 hidden">
                 <button onclick="openAdminPanel()" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">⚙️</div>
-                    <div class="font-bold text-purple-700">Daftar Admin</div>
+                    <div class="font-bold text-purple-700">Register Admin</div>
                 </button>
                 <button onclick="showScreen('sa-schools-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏫</div>
-                    <div class="font-bold text-purple-700">Senarai Sekolah</div>
+                    <div class="font-bold text-purple-700">School List</div>
                 </button>
                 <button onclick="showScreen('sa-students-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🎓</div>
-                    <div class="font-bold text-purple-700">Senarai Murid</div>
+                    <div class="font-bold text-purple-700">Student List</div>
                 </button>
                 <button onclick="showScreen('sa-boss-setup-screen')" class="glass p-6 rounded-3xl hover:bg-purple-50 transition-all group border-2 border-purple-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🐉</div>
@@ -114,14 +114,14 @@
                 </button>
                 <button onclick="showScreen('sa-analysis-screen')" class="col-span-2 md:col-span-4 glass p-6 rounded-3xl hover:bg-blue-50 transition-all group border-2 border-blue-300">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
-                    <div class="font-bold text-blue-700 text-xl">Analisis Sistem</div>
+                    <div class="font-bold text-blue-700 text-xl">System Analysis</div>
                 </button>
             </div>
 
-<div id="dashboard-school-admin" class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
+            <div id="dashboard-school-admin" class="grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
                 <button onclick="openAdminPanel()" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">⚙️</div>
-                    <div class="font-bold text-indigo-700">Daftar Murid</div>
+                    <div class="font-bold text-indigo-700">Register Student</div>
                 </button>
                 <button onclick="showScreen('leaderboard-screen')" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏆</div>
@@ -129,12 +129,12 @@
                 </button>
                 <button onclick="showScreen('sch-manage-shop-screen')" class="glass p-6 rounded-3xl hover:bg-indigo-50 transition-all group border-2 border-indigo-200">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">🏪</div>
-                    <div class="font-bold text-indigo-700">Urus Kedai</div>
+                    <div class="font-bold text-indigo-700">Manage Shop</div>
                 </button>
                 
                 <button onclick="showScreen('sa-analysis-screen')" class="col-span-1 md:col-span-3 glass p-6 rounded-3xl hover:bg-blue-50 transition-all group border-2 border-blue-300">
                     <div class="text-4xl mb-2 group-hover:scale-110 transition-transform">📊</div>
-                    <div class="font-bold text-blue-700 text-xl">Analisis Perkembangan Murid</div>
+                    <div class="font-bold text-blue-700 text-xl">Student Progress Analysis</div>
                 </button>
             </div>
 
@@ -158,9 +158,9 @@
 
 <div class="col-span-2 md:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
 
-    <button onclick="checkChallengeEligibility()" class="md:col-span-3 relative group bg-gradient-to-r from-red-500 to-orange-500 text-white p-4 rounded-2xl shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-3 font-bold text-xl overflow-hidden border-2 border-red-400 min-h-[100px]">
+<button onclick="checkChallengeEligibility()" class="md:col-span-3 relative group bg-gradient-to-r from-red-500 to-orange-500 text-white p-4 rounded-2xl shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-3 font-bold text-xl overflow-hidden border-2 border-red-400 min-h-[100px]">
         <i class="fas fa-swords text-3xl"></i>
-        ARENA CABARAN (PvP)
+        CHALLENGE ARENA (PvP)
         <span class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow-sm">Lvl 15+</span>
     </button>
 
@@ -223,11 +223,12 @@
     </div>
 
 </div>
-                <button id="boss-challenge-btn" onclick="startBossFight(); showScreen('boss-arena');" class="hidden col-span-2 md:col-span-4 glass p-6 rounded-3xl hover:bg-red-50 transition-all group border-2 border-red-400">
-                    <div class="text-4xl mb-2 group-hover:scale-110 transition-transform animate-pulse">🐉</div>
-                    <div class="font-bold text-red-700 text-xl">AMARAN: BOSS MUNCUL!</div>
-                    <div class="text-sm text-gray-600 mt-1">Klik untuk sertai pertempuran!</div>
-                </button>
+
+<button id="boss-challenge-btn" onclick="startBossFight(); showScreen('boss-arena');" class="hidden col-span-2 md:col-span-4 glass p-6 rounded-3xl hover:bg-red-50 transition-all group border-2 border-red-400">
+        <div class="text-4xl mb-2 group-hover:scale-110 transition-transform animate-pulse">🐉</div>
+        <div class="font-bold text-red-700 text-xl">WARNING: BOSS APPEARED!</div>
+        <div class="text-sm text-gray-600 mt-1">Click to join the battle!</div>
+    </button>>
             </div>
 	</div>
 
@@ -262,23 +263,26 @@
 <div id="challenge-lobby-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
     <div class="flex justify-between items-center mb-6 border-b pb-4">
         <div>
-            <h2 class="text-3xl font-black text-red-600"><i class="fas fa-fire-alt mr-2"></i> Arena Cabaran</h2>
-            <p class="text-gray-600 font-bold">Pilih lawan anda (Level 15 dan ke atas sahaja)</p>
+            <h2 class="text-3xl font-black text-red-600"><i class="fas fa-fire-alt mr-2"></i> Challenge Arena</h2>
+            <p class="text-gray-600 font-bold">PVP (Level 15 and and other requirements) / 3 vs 3 (Level 35 and and other requirements) </p>
         </div>
         <button onclick="showScreen('menu-screen')" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-xl font-bold transition-colors">
-            <i class="fas fa-arrow-left mr-2"></i> Kembali
+            <i class="fas fa-arrow-left mr-2"></i> Back
         </button>
     </div>
 
     <div class="flex gap-4 mb-6">
         <button class="flex-1 bg-red-600 text-white py-3 rounded-xl font-black shadow-md border-b-4 border-red-800">1 VS 1 (PvP)</button>
-        <button class="flex-1 bg-gray-300 text-gray-500 py-3 rounded-xl font-black cursor-not-allowed">3 VS 3 (Akan Datang)</button>
+        
+        <button onclick="check3v3Access()" class="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-black shadow-md border-b-4 border-purple-800 transform transition hover:scale-105 active:scale-95">
+            3 VS 3 (Lv 35+)
+        </button>
     </div>
 
     <div class="bg-white p-4 rounded-2xl shadow-inner min-h-[300px]">
-        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Senarai Pencabar Berpotensi</h3>
+        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">List of Potential Challengers</h3>
         <ul id="available-players-list" class="space-y-3">
-            <li class="text-center italic text-gray-400 py-4">⏳ Sedang mengimbas pemain elit...</li>
+            <li class="text-center italic text-gray-400 py-4">⏳ Scanning for elite players...</li>
         </ul>
     </div>
 </div>
@@ -289,37 +293,37 @@
         
         <div class="flex flex-col items-center z-10 w-1/3">
             <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-2 backdrop-blur-sm border-2 border-white shadow-lg">🥷</div>
-            <div id="pvp-p1-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PEMAIN 1</div>
+            <div id="pvp-p1-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PLAYER 1</div>
             <div id="pvp-p1-score" class="text-4xl md:text-5xl font-black text-yellow-300 drop-shadow-lg mt-1">0</div>
         </div>
 
         <div class="z-10 flex flex-col items-center w-1/3">
             <div class="text-5xl md:text-6xl font-black italic text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] animate-bounce">VS</div>
-            <div id="pvp-category-title" class="text-xs md:text-sm font-bold bg-black/60 px-4 py-1 rounded-full mt-2 uppercase tracking-wider text-center">Kategori</div>
+            <div id="pvp-category-title" class="text-xs md:text-sm font-bold bg-black/60 px-4 py-1 rounded-full mt-2 uppercase tracking-wider text-center">Category</div>
         </div>
 
         <div class="flex flex-col items-center z-10 w-1/3">
             <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center text-3xl mb-2 backdrop-blur-sm border-2 border-white shadow-lg">🧙‍♂️</div>
-            <div id="pvp-p2-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PEMAIN 2</div>
+            <div id="pvp-p2-name" class="font-black text-lg md:text-xl truncate w-full text-center drop-shadow-md">PLAYER 2</div>
             <div id="pvp-p2-score" class="text-4xl md:text-5xl font-black text-yellow-300 drop-shadow-lg mt-1">0</div>
         </div>
     </div>
 
     <div class="glass rounded-3xl p-6 md:p-10 shadow-2xl relative border-t-4 border-white bg-white/90">
         <div class="text-center mb-6">
-            <h3 class="text-gray-500 font-bold uppercase tracking-widest text-sm mb-2">Soalan Semasa</h3>
+            <h3 class="text-gray-500 font-bold uppercase tracking-widest text-sm mb-2">Current Question</h3>
             <div id="pvp-question-display" class="text-3xl md:text-5xl font-black text-gray-800 drop-shadow-sm min-h-[80px] flex items-center justify-center">
-                BERSEDIA...
+                GET READY...
             </div>
         </div>
 
         <div class="max-w-md mx-auto">
-            <input type="text" id="pvp-answer-input" class="w-full text-center text-2xl p-4 rounded-2xl border-4 border-gray-200 focus:border-indigo-500 focus:ring-0 transition-colors uppercase font-bold shadow-inner text-gray-800" placeholder="TAIP JAWAPAN..." disabled autocomplete="off">
+            <input type="text" id="pvp-answer-input" class="w-full text-center text-2xl p-4 rounded-2xl border-4 border-gray-200 focus:border-indigo-500 focus:ring-0 transition-colors uppercase font-bold shadow-inner text-gray-800" placeholder="TYPE ANSWER..." disabled autocomplete="off">
         </div>
-        
+
         <div class="mt-8 flex justify-between items-center text-sm font-bold text-gray-400">
-            <span class="bg-gray-100 px-3 py-1 rounded-lg">Soalan <span id="pvp-q-count" class="text-gray-700">1</span></span>
-            <span class="bg-red-50 px-3 py-1 rounded-lg text-red-500 border border-red-100">Masa: <span id="pvp-timer" class="text-xl">60</span>s</span>
+            <span class="bg-gray-100 px-3 py-1 rounded-lg">Question <span id="pvp-q-count" class="text-gray-700">1</span></span>
+            <span class="bg-red-50 px-3 py-1 rounded-lg text-red-500 border border-red-100">Time: <span id="pvp-timer" class="text-xl">60</span>s</span>
         </div>
     </div>
 </div>
@@ -334,9 +338,8 @@
 </div>
 
 <div id="shop-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
-    
     <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold text-indigo-800">🛒 Kedai Ganjaran</h2>
+        <h2 class="text-3xl font-bold text-indigo-800">🛒 Reward Shop</h2>
         <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800 transition-colors">
             <i class="fas fa-times text-2xl"></i>
         </button>
@@ -358,15 +361,15 @@
         <div id="edu-shop-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div class="text-center col-span-full py-10 text-gray-500">
                 <i class="fas fa-spinner fa-spin text-3xl mb-2 text-indigo-600"></i>
-                <p>Memuatkan barangan...</p>
+                <p>Loading items...</p>
             </div>
         </div>
     </div>
 
     <div id="shop-content-avatar" class="shop-section hidden">
         <div class="mb-6">
-            <h3 class="text-xl font-bold text-gray-800">Koleksi Guardian</h3>
-            <p class="text-sm text-gray-500">Dapatkan Guardian unik untuk menemani pengembaraan anda!</p>
+            <h3 class="text-xl font-bold text-gray-800">Guardian Collections</h3>
+            <p class="text-sm text-gray-500">Get your unique Guardian to accompany your adventure!</p>
         </div>
         <div id="avatar-shop-items" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
     </div>
@@ -375,17 +378,17 @@
         <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mt-2">
             <div class="flex flex-col items-center justify-center mb-8 text-center">
                 <h2 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-500 uppercase tracking-wider">
-                    <i class="fas fa-medal mr-2 text-yellow-500"></i> Lencana Pencapaian
+                    <i class="fas fa-medal mr-2 text-yellow-500"></i> Achievements Badge
                 </h2>
                 <p class="text-gray-500 mt-2 max-w-2xl">
-                    Tunjukkan kehebatan anda! Penuhi syarat cabaran untuk membuka kunci dan kumpul lencana eksklusif ini.
+                    Show your skills! Fullfill all challenges to unlock all achievements and collect all badges.
                 </p>
             </div>
 
             <div id="medal-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div class="col-span-full text-center py-10 text-gray-400">
                     <i class="fas fa-spinner fa-spin text-3xl mb-3"></i>
-                    <p>Memuatkan Lencana Pencapaian...</p>
+                    <p>Loading Achievements Badges...</p>
                 </div>
             </div>
         </div>
@@ -397,9 +400,9 @@
     <div class="flex justify-between items-center mb-6 border-b-2 border-pink-100 pb-4">
         <div>
             <h2 class="text-3xl font-black text-pink-600 flex items-center gap-3">
-                <i class="fas fa-medal text-yellow-500 drop-shadow-md"></i> Koleksi Medal
+                <i class="fas fa-medal text-yellow-500 drop-shadow-md"></i> Badges Collection
             </h2>
-            <p class="text-gray-500 text-sm mt-1">Selesaikan cabaran untuk kumpul medal dan syiling!</p>
+            <p class="text-gray-500 text-sm mt-1">Complete challenge to collect badges and coins!</p>
         </div>
         <button onclick="closeAchievementsScreen()" class="text-gray-400 hover:text-red-500 transition-colors">
             <i class="fas fa-times-circle text-3xl"></i>
@@ -407,7 +410,7 @@
     </div>
 
     <div class="bg-pink-50 text-pink-700 px-4 py-2 rounded-xl font-bold text-sm inline-block mb-6 shadow-inner border border-pink-100">
-        <i class="fas fa-trophy mr-1"></i> Pencapaian: <span id="achievements-stats">0 / 0</span>
+        <i class="fas fa-trophy mr-1"></i> Achievements: <span id="achievements-stats">0 / 0</span>
     </div>
 
     <div id="achievements-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -538,7 +541,7 @@
 
 <div id="sa-boss-setup-screen" class="hidden animate-fade-in glass rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
     <div class="flex justify-between items-center mb-6">
-        <h2 class="text-3xl font-bold text-red-700">🐉 Tetapan Cabaran Boss</h2>
+        <h2 class="text-3xl font-bold text-red-700">🐉 Boss Challenge Setup</h2>
         <button onclick="showScreen('menu-screen')" class="text-gray-500 hover:text-gray-800"><i class="fas fa-times text-2xl"></i></button>
     </div>
     <div class="bg-red-50 p-6 rounded-2xl border-2 border-red-200 space-y-4">
@@ -730,7 +733,7 @@
     <script src="auth.js"></script>
     <script src="achievements.js"></script>
     <script src="shop.js"></script>
-    <script src="game.js"></script>
+    <script src="game.js?v=2"></script>
     <script src="boss.js"></script>
 
     <script src="ui.js"></script>
@@ -784,7 +787,7 @@ function showScreen(screenId) {
         <button onclick="closeSubjectModal()" class="absolute top-4 right-5 text-gray-400 hover:text-red-500 text-3xl"><i class="fas fa-times"></i></button>
         
         <div id="subject-grid">
-            <h2 class="text-3xl font-black text-indigo-800 mb-6 text-center border-b-2 border-indigo-100 pb-4">Pilih Subjek 📚</h2>
+            <h2 class="text-3xl font-black text-indigo-800 mb-6 text-center border-b-2 border-indigo-100 pb-4">Choose Subject 📚</h2>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 <button onclick="showEnglishCategories()" class="bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl text-white font-bold hover:scale-105 transition-transform shadow-lg flex flex-col items-center gap-3 border-4 border-indigo-300">
                     <span class="text-5xl">🇬🇧</span>
@@ -906,39 +909,54 @@ function showScreen(screenId) {
 
 <div id="profile-screen" class="hidden fixed inset-0 bg-indigo-900/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6">
     
-    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden relative border-4 border-white">
+    <div class="bg-white w-full max-w-md max-h-[85vh] flex flex-col rounded-3xl shadow-2xl overflow-hidden relative border-4 border-white">
         
-        <div class="bg-indigo-600 p-8 text-center">
-            <div id="profile-avatar-container" class="w-28 h-28 mx-auto flex items-center justify-center text-5xl mb-4 overflow-visible relative drop-shadow-2xl">
-                👤
-            </div>
+        <button onclick="closeProfile()" class="absolute top-4 right-4 w-10 h-10 bg-indigo-700/50 hover:bg-red-500 text-white rounded-xl flex items-center justify-center transition-all z-20">
+            ✕
+        </button>
 
-            <h2 id="profile-name" class="text-white text-2xl font-black uppercase tracking-tight">Student Name</h2>
+        <div class="overflow-y-auto flex-1 custom-scrollbar">
             
-            <div id="profile-active-title" class="inline-block mt-2 px-4 py-1 bg-indigo-800/50 rounded-full text-indigo-100 text-xs font-bold tracking-widest uppercase">
-                Novice
+            <div class="bg-indigo-600 p-8 pt-10 text-center shrink-0">
+                <div id="profile-avatar-container" class="w-28 h-28 mx-auto flex items-center justify-center text-5xl mb-4 overflow-visible relative drop-shadow-2xl">
+                    👤
+                </div>
+
+                <h2 id="profile-name" class="text-white text-2xl font-black uppercase tracking-tight">Student Name</h2>
+                
+                <div id="profile-active-title" class="inline-block mt-2 px-4 py-1 bg-indigo-800/50 rounded-full text-indigo-100 text-xs font-bold tracking-widest uppercase">
+                    Novice
+                </div>
             </div>
-        </div>
 
-        <div class="p-6">
-            <label class="block text-gray-400 text-[10px] font-black uppercase mb-2 tracking-widest">Select Your Title</label>
-            <select id="title-selector" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-700 font-bold focus:border-indigo-500 focus:ring-0 transition-all appearance-none">
-                <option value="">-- Loading Titles... --</option>
-            </select>
+            <div class="p-6 pb-4">
+                <div class="mb-6">
+                    <label class="block text-gray-400 text-[10px] font-black uppercase mb-2 tracking-widest text-center">Lencana Koleksi</label>
+                    <div id="profile-badges-container" class="flex flex-wrap gap-2 justify-center bg-gray-50 p-4 rounded-2xl border-2 border-dashed border-gray-200 min-h-[60px]">
+                    </div>
+                </div>
 
-            <button onclick="saveEquippedTitle()" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
+                <label class="block text-gray-400 text-[10px] font-black uppercase mb-2 tracking-widest">Select Your Title</label>
+                <div class="relative">
+                    <select id="title-selector" class="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-700 font-bold focus:border-indigo-500 focus:ring-0 transition-all appearance-none">
+                        <option value="">-- Loading Titles... --</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+            </div>
+
+        </div> <div class="p-4 bg-white border-t-2 border-gray-100 shrink-0 z-10">
+            <button onclick="saveEquippedTitle()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95">
                 EQUIP TITLE
             </button>
         </div>
 
-        <button onclick="closeProfile()" class="absolute top-4 right-4 w-10 h-10 bg-indigo-700/50 hover:bg-red-500 text-white rounded-xl flex items-center justify-center transition-all">
-            ✕
-        </button>
-    </div>
-    
-    <button onclick="closeProfile()" class="mt-8 text-indigo-200 font-bold hover:text-white transition-colors">
+    </div> <button onclick="closeProfile()" class="mt-8 text-indigo-200 font-bold hover:text-white transition-colors shrink-0">
         ← BACK TO DASHBOARD
     </button>
+
 </div>
 
 <div id="student-detail-modal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1073,5 +1091,146 @@ function showScreen(screenId) {
         </div>
     </div>
 </div>
+
+<section id="arena-3v3-room-list" class="hidden fixed inset-0 z-[60] bg-slate-900 overflow-y-auto p-4">
+    <div class="max-w-5xl mx-auto mt-10 md:mt-20">
+        
+        <div class="text-center mb-10">
+            <h1 class="text-4xl md:text-6xl font-black text-white drop-shadow-lg mb-4">PILIH LOBI</h1>
+            <p class="text-slate-400 text-lg md:text-xl">Cari lobi rakan anda atau bina lobi perlawanan anda sendiri!</p>
+        </div>
+
+        <div class="flex justify-center mb-10">
+            <button id="btn-bina-lobi" onclick="binaLobiBaru()" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-black text-2xl px-10 py-5 rounded-2xl shadow-[0_8px_0_#b45309] active:shadow-[0_0px_0_#b45309] active:translate-y-2 transition-all flex items-center gap-3">
+                <span>➕ BINA LOBI BAHARU</span>
+            </button>
+        </div>
+
+        <div class="bg-slate-800 border-4 border-slate-700 rounded-3xl p-6 md:p-8 min-h-[300px]">
+            <h3 class="text-2xl text-slate-300 font-bold mb-6 border-b-2 border-slate-700 pb-4">Lobi Sedang Menunggu Pemain:</h3>
+            
+            <div id="room-list-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p class="text-slate-500 italic col-span-full text-center py-10 text-xl animate-pulse">Sedang mencari lobi...</p>
+            </div>
+        </div>
+
+        <div class="mt-10 text-center">
+            <button onclick="kembaliKeMenuDariRoomList()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl px-8 py-4 rounded-xl transition">
+                ⬅ Kembali ke Menu Utama
+            </button>
+        </div>
+
+    </div>
+</section>
+
+<section id="arena-3v3-lobby" class="hidden fixed inset-0 z-50 bg-slate-900/95 overflow-y-auto p-4 flex items-center justify-center">
+    <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden relative border-4 border-purple-500">
+        
+        <div class="bg-gradient-to-r from-red-600 via-purple-700 to-blue-600 p-6 pt-10 text-white text-center shadow-lg">
+            <h1 class="text-4xl font-black italic tracking-tighter uppercase leading-none">3 VS 3 Team Battle</h1>
+            <p class="text-xs opacity-90 mt-1 font-bold tracking-[0.2em]">FACTION WARS: CHOOSE YOUR SIDE</p>
+        </div>
+
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-white">
+            
+            <div class="space-y-4">
+                <div class="bg-red-600 text-white p-3 rounded-xl font-black text-center shadow-md">TEAM RED (A)</div>
+                <div id="team-a-slots" class="space-y-3">
+                    <div id="slot-A1" onclick="join3v3Team('A', 1)" class="p-4 border-2 border-dashed border-red-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-red-50 hover:border-red-500 transition font-bold">Join Slot A1</div>
+                    <div id="slot-A2" onclick="join3v3Team('A', 2)" class="p-4 border-2 border-dashed border-red-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-red-50 hover:border-red-500 transition font-bold">Join Slot A2</div>
+                    <div id="slot-A3" onclick="join3v3Team('A', 3)" class="p-4 border-2 border-dashed border-red-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-red-50 hover:border-red-500 transition font-bold">Join Slot A3</div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div class="bg-blue-600 text-white p-3 rounded-xl font-black text-center shadow-md">TEAM BLUE (B)</div>
+                <div id="team-b-slots" class="space-y-3">
+                    <div id="slot-B1" onclick="join3v3Team('B', 1)" class="p-4 border-2 border-dashed border-blue-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-blue-50 hover:border-blue-500 transition font-bold">Join Slot B1</div>
+                    <div id="slot-B2" onclick="join3v3Team('B', 2)" class="p-4 border-2 border-dashed border-blue-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-blue-50 hover:border-blue-500 transition font-bold">Join Slot B2</div>
+                    <div id="slot-B3" onclick="join3v3Team('B', 3)" class="p-4 border-2 border-dashed border-blue-300 rounded-2xl text-center text-gray-400 cursor-pointer hover:bg-blue-50 hover:border-blue-500 transition font-bold">Join Slot B3</div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="p-6 bg-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 border-t-2 border-gray-200">
+            <button onclick="backToMenuFrom3v3()" class="w-full md:w-auto px-8 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-md">
+                <i class="fas fa-sign-out-alt mr-2"></i> KELUAR LOBI
+            </button>
+
+            <div id="lobby-3v3-status" class="text-purple-700 font-black text-xl animate-pulse text-center w-full md:w-auto">
+                MENUNGGU PEMAIN (0/6)...
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="arena-3v3-draft" class="hidden fixed inset-0 z-[60] bg-slate-900 overflow-y-auto p-4 flex flex-col items-center justify-center">
+    <div class="text-center mb-8">
+        <h1 class="text-5xl text-white font-black italic tracking-wider mb-2 drop-shadow-lg">FASA DRAFT</h1>
+        <p class="text-yellow-400 font-bold animate-pulse text-xl">SILA PILIH KATEGORI ANDA (PANTAS!)</p>
+    </div>
+
+    <div id="draft-category-buttons" class="flex flex-wrap justify-center gap-4 mb-12 w-full max-w-4xl"></div>
+
+    <div class="flex flex-col md:flex-row gap-8 w-full max-w-5xl">
+        <div class="flex-1 bg-red-950/80 p-6 rounded-3xl border-4 border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+            <h2 class="text-3xl text-red-400 font-black text-center mb-6 border-b-2 border-red-800 pb-2">TEAM RED</h2>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center bg-red-900/50 p-3 rounded-xl">
+                    <span id="draft-name-A1" class="text-white font-bold text-lg">A1: Menunggu...</span>
+                    <span id="draft-pick-A1" class="text-red-300 font-black bg-red-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+                <div class="flex justify-between items-center bg-red-900/50 p-3 rounded-xl">
+                    <span id="draft-name-A2" class="text-white font-bold text-lg">A2: Menunggu...</span>
+                    <span id="draft-pick-A2" class="text-red-300 font-black bg-red-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+                <div class="flex justify-between items-center bg-red-900/50 p-3 rounded-xl">
+                    <span id="draft-name-A3" class="text-white font-bold text-lg">A3: Menunggu...</span>
+                    <span id="draft-pick-A3" class="text-red-300 font-black bg-red-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 bg-blue-950/80 p-6 rounded-3xl border-4 border-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.5)]">
+            <h2 class="text-3xl text-blue-400 font-black text-center mb-6 border-b-2 border-blue-800 pb-2">TEAM BLUE</h2>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center bg-blue-900/50 p-3 rounded-xl">
+                    <span id="draft-name-B1" class="text-white font-bold text-lg">B1: Menunggu...</span>
+                    <span id="draft-pick-B1" class="text-blue-300 font-black bg-blue-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+                <div class="flex justify-between items-center bg-blue-900/50 p-3 rounded-xl">
+                    <span id="draft-name-B2" class="text-white font-bold text-lg">B2: Menunggu...</span>
+                    <span id="draft-pick-B2" class="text-blue-300 font-black bg-blue-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+                <div class="flex justify-between items-center bg-blue-900/50 p-3 rounded-xl">
+                    <span id="draft-name-B3" class="text-white font-bold text-lg">B3: Menunggu...</span>
+                    <span id="draft-pick-B3" class="text-blue-300 font-black bg-blue-950 px-3 py-1 rounded-lg">...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="arena-3v3-battle" class="hidden fixed inset-0 z-[70] bg-slate-950 flex flex-col items-center p-4">
+    <div class="w-full max-w-5xl flex justify-between items-center bg-black/50 p-4 rounded-2xl border-b-4 border-yellow-500 mb-6 mt-4">
+        <div class="text-center w-1/3">
+            <p class="text-red-500 font-black text-sm md:text-xl">TEAM RED</p>
+            <h2 id="score-team-A" class="text-5xl text-white font-black">0</h2>
+        </div>
+        <div class="text-center w-1/3">
+            <p class="text-yellow-500 font-bold italic text-sm md:text-lg">TIME LEFT</p>
+            <h2 id="battle-timer" class="text-4xl text-white font-mono font-bold">03:00</h2>
+        </div>
+        <div class="text-center w-1/3">
+            <p class="text-blue-500 font-black text-sm md:text-xl">TEAM BLUE</p>
+            <h2 id="score-team-B" class="text-5xl text-white font-black">0</h2>
+        </div>
+    </div>
+
+    <div id="battle-question-box" class="w-full max-w-3xl bg-white p-8 rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.1)] text-center min-h-[300px] flex flex-col justify-center items-center">
+        <p class="text-gray-400 italic text-xl animate-pulse">Sila tunggu, memuat turun soalan...</p>
+    </div>
+</section>
 </body>
 </html>
