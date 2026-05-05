@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
@@ -57,6 +58,9 @@
         </div>
     </div>
 </div>
+<button onclick="toggleBgMusic()" class="fixed bottom-4 right-4 z-50 bg-slate-800 border-2 border-slate-600 p-3 rounded-full shadow-lg hover:scale-110 transition-transform">
+    <i id="music-btn-icon" class="fas fa-volume-up text-green-400 text-xl w-6 h-6 text-center"></i>
+</button>
 
         <div id="menu-screen" class="hidden animate-fade-in">
             
@@ -732,7 +736,7 @@
 	<script src="chatData.js"></script>
     <script src="trackers.js"></script>
 
-    <script src="auth.js"></script>
+    <script src="audio.js"></script><script src="auth.js"></script>
     <script src="achievements.js"></script>
     <script src="shop.js"></script>
     <script src="game.js?v=2"></script>
