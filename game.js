@@ -1887,23 +1887,39 @@ async function check3v3Access() {
         return;
     }
 
-    // 🛑 3. SARINGAN PERFECT SCORES (KATEGORI EASY/MED/HARD)
-    let perfectGames = localPlayerData.perfectScoreGamesList || [];
+// 🛑 3. SARINGAN PERFECT SCORES (KATEGORI EASY/MED/HARD)
+    const userScores = localPlayerData.games || {};
+    const PERFECT_SCORE = 50; // Selaraskan markah lulus kepada 50
+    
     let countEasy = 0, countMed = 0, countHard = 0;
 
-    // Gunakan categoryDifficulty dari bahagian atas fail game.js
-    perfectGames.forEach(gameKey => {
+    // Fungsi kecil untuk tarik markah sebenar
+    function getRealScore(cat) {
+        let rawScore = userScores[cat];
+        if (typeof rawScore === 'object' && rawScore !== null) {
+            return parseInt(rawScore.score || rawScore.best || rawScore.mark || 0);
+        }
+        return parseInt(rawScore) || 0;
+    }
+
+    // Semak semua markah yang murid ada dalam memori 'games'
+    Object.keys(userScores).forEach(gameKey => {
         const cat = gameKey.toLowerCase();
-        if (categoryDifficulty.easy.includes(cat)) countEasy++;
-        if (categoryDifficulty.medium.includes(cat)) countMed++;
-        if (categoryDifficulty.hard.includes(cat)) countHard++;
+        const score = getRealScore(gameKey);
+
+        // Jika markah lebih atau sama dengan 50, barulah dikira lulus!
+        if (score >= PERFECT_SCORE) {
+            if (categoryDifficulty.easy.includes(cat)) countEasy++;
+            if (categoryDifficulty.medium.includes(cat)) countMed++;
+            if (categoryDifficulty.hard.includes(cat)) countHard++;
+        }
     });
 
     if (countEasy < 3 || countMed < 2 || countHard < 1) {
         Swal.fire({
             icon: 'warning',
             title: 'Not Elite Enough!',
-            html: `To enter the 3v3 Arena, you must prove your mastery by achieving a <b>Perfect Score (50)</b> in specific categories.<br><br>
+            html: `To enter the 3v3 Arena, you must prove your mastery by achieving a <b>Perfect Score (${PERFECT_SCORE})</b> in specific categories.<br><br>
                    Your Perfect Score Progress:<br>
                    🟢 Easy Categories: ${countEasy}/3<br>
                    🟡 Medium Categories: ${countMed}/2<br>
