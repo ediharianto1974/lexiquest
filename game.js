@@ -1903,7 +1903,7 @@ async function check3v3Access() {
         Swal.fire({
             icon: 'warning',
             title: 'Not Elite Enough!',
-            html: `To enter the 3v3 Arena, you must prove your mastery by achieving a <b>Perfect Score (100)</b> in specific categories.<br><br>
+            html: `To enter the 3v3 Arena, you must prove your mastery by achieving a <b>Perfect Score (50)</b> in specific categories.<br><br>
                    Your Perfect Score Progress:<br>
                    🟢 Easy Categories: ${countEasy}/3<br>
                    🟡 Medium Categories: ${countMed}/2<br>
