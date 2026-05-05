@@ -8,7 +8,8 @@ const firebaseConfig = {
     storageBucket: "lexiquest-4c9f7.firebasestorage.app",
     messagingSenderId: "17727028884",
     appId: "1:17727028884:web:1fd63f6a86db2e3ef4be81",
-    measurementId: "G-1935EGF4ZQ"
+    measurementId: "G-1935EGF4ZQ",
+    databaseURL: "https://lexiquest-4c9f7-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 firebase.initializeApp(firebaseConfig);
