@@ -124,6 +124,7 @@ function giveXP(category, correctCount) {
 // 1. SISTEM KUIZ & MEMORI PERMAINAN
 // ==========================================
 function initGame(type) {
+if (typeof pauseBgMusic === 'function') pauseBgMusic();
     if (!type) return; 
     const safeType = type.toUpperCase(); 
 
@@ -804,6 +805,9 @@ function endGame() {
         if (gameArena) gameArena.classList.add('hidden');
         if (finalScoreScreen) finalScoreScreen.classList.add('hidden');
         if (menuScreen) menuScreen.classList.remove('hidden');
+
+	// 🎵 TAMBAH BARIS INI: Mainkan semula muzik apabila kembali ke menu 🎵
+        if (typeof playBgMusic === 'function') playBgMusic();
         
         // Jika ada fungsi untuk kembalikan paparan kategori subjek
         if (typeof backToSubjects === 'function') backToSubjects();
@@ -1503,6 +1507,7 @@ function startChallengeListener(myName) {
 // C. MULA PERLAWANAN PVP (COUNTDOWN & ARENA)
 // ==========================================
 function startPvPMatch(challengeId, challengeData) {
+    if (typeof playBgMusic === 'function') playBgMusic('pvp');
     console.log("⚔️ Mempersiapkan Arena PvP untuk cabaran:", challengeId);
     
     // 1. Kenal pasti pemain dan kemas kini UI Papan Markah
@@ -1773,6 +1778,9 @@ function endPvPMatch() {
             if (pvpArenaScreen) pvpArenaScreen.classList.add('hidden');
             document.getElementById('challenge-lobby-screen').classList.remove('hidden');
         }
+
+	// 🎵 TAMBAH BARIS INI: Mainkan semula muzik apabila kembali ke Lobi PvP 🎵
+        if (typeof playBgMusic === 'function') playBgMusic();
 
         // 🟢 KEMBALIKAN STATUS KE IDLE DENGAN ID YANG BETUL
         db.collection("players").doc(docId).update({
@@ -2575,6 +2583,7 @@ let my3v3LongestStreak = 0;
 let battle3v3_isMemproses = false;
 
 function masukBattle(data, mySlotKey) {
+    if (typeof playBgMusic === 'function') playBgMusic('arena');
     if (!currentLobbyId) return; // Langkah keselamatan
 
     const draftScreen = document.getElementById('arena-3v3-draft');
