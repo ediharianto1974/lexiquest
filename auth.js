@@ -15,6 +15,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const rtdb = firebase.database(); 
+
 // ==========================================
 // 3. INITIALIZATION & AUTO-LOGIN
 // ==========================================
@@ -43,7 +44,8 @@ window.onload = async () => {
         document.getElementById('menu-screen')?.classList.remove('hidden');
         
         updateUI();
-        showDashboardBasedOnRole(); 
+        showDashboardBasedOnRole();
+        if (typeof playBgMusic === 'function') playBgMusic(); 
         triggerGameHooks();
 
         // (Tukar ke 15 nanti)
@@ -106,6 +108,7 @@ function triggerGameHooks() {
     }
     
     checkLevelRewardsOnLogin();
+    if (typeof playBgMusic === 'function') playBgMusic();
 }
 
 // ==========================================
@@ -180,6 +183,7 @@ async function loginStudent() {
             });
 
             finalizeLogin();
+  	    if (typeof playBgMusic === 'function') playBgMusic();
             
             // ==========================================
             // ---> TAMBAH KOD INI DI SINI <---
