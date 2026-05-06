@@ -2344,25 +2344,43 @@ function masukFasaDraft(data) {
         
     } 
     // --------------------------------------------------------
-    // FASA DRAFTING (PICKING)
+    // FASA DRAFTING (PICKING) - BERGILIR
     // --------------------------------------------------------
     else if (data.status === "drafting") {
-        if (titleEl) titleEl.innerText = "FASA DRAFT: PILIH KATEGORI ANDA!";
-        renderPickPhase(data, container, mySlotKey);
+        if (typeof banTimerInterval !== 'undefined') clearInterval(banTimerInterval); 
         
-        const totalSelected = data.selections ? Object.keys(data.selections).length : 0;
+        const urutanPick = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
+        const selections = data.selections || {};
+        const totalSelected = Object.keys(selections).length;
         
-        // 🤖 KUASA SISTEM: Jika 6 kategori sudah dipilih, sistem terus mula perlawanan
+        // Jika 6 orang dah pilih, terus masuk battle
         if (totalSelected >= 6) { 
-            // Update status ke playing di Firebase
+            if (pickTimerInterval) clearInterval(pickTimerInterval);
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "playing" });
-            
-            // Bawa pemain masuk ke perlawanan
             masukBattle(data, mySlotKey); 
+            return;
         }
-    }
-}
 
+        // Tentukan giliran siapa untuk Pick
+        const giliranSekarang = urutanPick[totalSelected];
+        const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
+
+        // Paparkan tajuk dan status giliran
+        if (titleEl) {
+            if (mySlotKey === giliranSekarang) {
+                titleEl.innerHTML = `<span class="text-yellow-500 animate-pulse">GILIRAN ANDA! PILIH 1 KATEGORI (<span id="pick-timer">15</span>s)</span>`;
+            } else {
+                titleEl.innerHTML = `MENUNGGU ${giliranSekarang} (${namaPemainGiliran}) MEMILIH KATEGORI... (<span id="pick-timer">15</span>s)`;
+            }
+        }
+
+        // Lukis butang
+        renderPickPhase(data, container, mySlotKey, giliranSekarang);
+        
+        // Mulakan pemasa
+        mulakanPemasaPick(data, mySlotKey, giliranSekarang);
+    }
+	
 // ---------------------------------------------------------
 // FASA 1: BANNING (BUANG KATEGORI) - SISTEM BERGILIR & AUTO
 // ---------------------------------------------------------
@@ -2479,51 +2497,118 @@ function mulakanPemasaBan(data, mySlotKey, giliranSekarang) {
     }, 1000);
 }
 
+// =======================================================
+// FUNGSI BARU: PEMASA 15 SAAT & AUTO-PICK
+// =======================================================
+let pickTimerInterval = null;
+
+function mulakanPemasaPick(data, mySlotKey, giliranSekarang) {
+    let timeLeft = 15;
+    const timerSpan = document.getElementById('pick-timer');
+    
+    if (pickTimerInterval) clearInterval(pickTimerInterval);
+
+    pickTimerInterval = setInterval(async () => {
+        timeLeft--;
+        if (timerSpan) timerSpan.innerText = timeLeft;
+
+        // BILA MASA TAMAT (0 SAAT)
+        if (timeLeft <= 0) {
+            clearInterval(pickTimerInterval);
+            
+            // 🤖 AUTO-PICK: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN
+            if (mySlotKey === giliranSekarang) {
+                
+                const bans = data.bannedCategories || [];
+                const selections = data.selections || {};
+                const takenCategories = Object.values(selections);
+                
+                // Cari kategori yang BELUM di-ban DAN BELUM dipilih
+                const availableCategories = data.draftPool.filter(
+                    cat => !bans.includes(cat) && !takenCategories.includes(cat)
+                );
+                
+                if (availableCategories.length > 0) {
+                    // Pilih rawak
+                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+                    
+                    Swal.fire({
+                        title: 'Masa Tamat!',
+                        text: `Sistem memilih secara rawak: ${randomCategory.toUpperCase()}`,
+                        icon: 'info',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Hantar pilihan rawak ke Firebase
+                    pilihKategoriDraft(randomCategory, mySlotKey);
+                }
+            }
+        }
+    }, 1000);
+}
+
 // ---------------------------------------------------------
-// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL)
+// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL) - BERGILIR
 // ---------------------------------------------------------
-function renderPickPhase(data, container, mySlotKey) {
+function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     if (!container || !data.draftPool) return;
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
 
+    // Semak adakah INI GILIRAN SAYA?
+    let isMyTurn = (mySlotKey === giliranSekarang);
+
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
         
         const btn = document.createElement('button');
         btn.id = `btn-draft-${catKey}`;
-        btn.className = "group relative bg-slate-800 border-2 border-slate-700 p-6 rounded-2xl transition-all hover:scale-105 hover:border-yellow-500 flex flex-col items-center justify-center min-w-[200px]";
+        btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
         
         let statusText = "Tersedia";
-        let isDisabled = false;
-        let statusClass = "text-slate-400";
+        let isTaken = false;
+        let whoTookIt = null;
 
+        // Semak jika kategori ini sudah diambil oleh sesiapa
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
-                    const teamInvolved = slot.charAt(0);
-                    const myTeam = mySlotKey ? mySlotKey.charAt(0) : '';
-                    
-                    if (teamInvolved === myTeam) {
-                        statusText = (slot === mySlotKey) ? "ANDA PILIH" : "RAKAN AMBIL";
-                        statusClass = "text-yellow-500 font-bold animate-pulse";
-                        isDisabled = true;
-                    }
+                    isTaken = true;
+                    whoTookIt = slot;
+                    break;
                 }
             }
         }
 
-        btn.innerHTML = `
-            <div class="text-white font-black text-xl mb-2">${displayName}</div>
-            <div class="text-sm ${statusClass} italic">${statusText}</div>
-        `;
-
-        if (isDisabled) {
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
+        if (isTaken) {
+            // KATEGORI SUDAH DIAMBIL
+            statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
+            const colorClass = (whoTookIt === mySlotKey) ? "text-yellow-500" : "text-slate-500";
+            btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
+            btn.innerHTML = `
+                <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
+                <div class="text-sm ${colorClass} font-bold">${statusText}</div>
+            `;
         } else {
-            btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey, data);
+            // KATEGORI MASIH KOSONG
+            if (isMyTurn) {
+                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer";
+                btn.innerHTML = `
+                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
+                `;
+                btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
+            } else {
+                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
+                btn.innerHTML = `
+                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-slate-500 italic">Menunggu...</div>
+                `;
+                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
+            }
         }
 
         container.appendChild(btn);
@@ -2532,25 +2617,19 @@ function renderPickPhase(data, container, mySlotKey) {
     kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
 }
 
-// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI
-async function pilihKategoriDraft(catKey, mySlotKey, lobbyData) {
+// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI (Dimudahkan)
+async function pilihKategoriDraft(catKey, mySlotKey) {
     if (!mySlotKey || !currentLobbyId) return;
-
-    const myTeam = mySlotKey.charAt(0); 
-    const selections = lobbyData.selections || {};
-
-    for (let slot in selections) {
-        if (slot.charAt(0) === myTeam && selections[slot] === catKey) {
-            Swal.fire('Kategori Diambil!', 'Rakan sepasukan anda sudah memilih kategori ini.', 'warning');
-            return;
-        }
-    }
 
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     try {
         await lobbyRef.update({
-            [`selections/${mySlotKey}`]: catKey // Guna '/' bukan '.'
+            [`selections/${mySlotKey}`]: catKey 
         });
+        
+        // Hentikan timer kita bila dah berjaya pilih
+        if (typeof pickTimerInterval !== 'undefined') clearInterval(pickTimerInterval);
+        
     } catch (err) {
         console.error("Gagal memilih kategori:", err);
     }
