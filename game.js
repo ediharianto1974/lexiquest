@@ -2213,13 +2213,17 @@ const statusEl = document.getElementById('lobby-3v3-status');
             statusEl.classList.add('text-green-600');
 
             // ==========================================
-            // 2. TAMBAH KOD INI: Beritahu Firebase untuk masuk fasa Banning
+            // 2. KOD YANG DIBETULKAN: Semak status Firebase terus dari sumber
             // ==========================================
-            if (data.status === "waiting") {
-                setTimeout(() => {
-                    rtdb.ref("arenas/" + currentLobbyId).update({ status: "banning" });
-                }, 2000); // Tunggu 2 saat supaya murid sempat baca "GET READY"
-            }
+            rtdb.ref("arenas/" + currentLobbyId).once("value").then((snapshot) => {
+                const arenaData = snapshot.val();
+                // Jika lobi wujud dan masih berstatus "waiting"
+                if (arenaData && arenaData.status === "waiting") {
+                    setTimeout(() => {
+                        rtdb.ref("arenas/" + currentLobbyId).update({ status: "banning" });
+                    }, 2000); 
+                }
+            });
             // ==========================================
 
         } else {
