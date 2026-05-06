@@ -2174,13 +2174,44 @@ function listenTo3v3Lobby(roomId) {
     });
 }
 
-// 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST (Kekal Sama)
-// 🛑 PEMBETULAN DI SINI: Terima 'data'
+// 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST
 function update3v3UI(slots, data) {
     let count = 0;
     const teams = ['A', 'B'];
     
+    // 1. Kenal pasti pemain ini duduk di slot mana
+    let mySlotKey = null;
+    if (typeof studentInfo !== 'undefined') {
+        for (let s in slots) {
+            if (slots[s] === studentInfo.name) {
+                mySlotKey = s;
+                break;
+            }
+        }
+    }
+
+    // 2. Dapatkan nama pasukan dari Firebase, default ke "Team A" / "Team B"
+    const teamNames = data.teamNames || { A: "Team A", B: "Team B" };
+    
     teams.forEach(t => {
+        // ====================================================
+        // KEMASKINI TAJUK NAMA PASUKAN (UNTUK KAPTEN A1 / B1)
+        // ====================================================
+        const teamNameEl = document.getElementById(`team-name-${t}`);
+        if (teamNameEl) {
+            let tName = teamNames[t];
+            let headerHtml = `<span class="font-black">${tName}</span>`;
+            
+            // Jika pemain ini adalah Kapten pasukan tersebut (Slot 1)
+            if (mySlotKey === `${t}1`) {
+                headerHtml += ` <button onclick="tukarNamaPasukan('${t}')" class="ml-3 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-lg hover:bg-yellow-300 transition shadow-md" title="Tukar Nama Pasukan"><i class="fas fa-edit"></i> Edit</button>`;
+            }
+            teamNameEl.innerHTML = headerHtml;
+        }
+
+        // ====================================================
+        // GELUNG UNTUK SLOT PEMAIN (1, 2, 3) - KEKAL SAMA
+        // ====================================================
         for (let i = 1; i <= 3; i++) {
             const slotId = `slot-${t}${i}`;
             const slotEl = document.getElementById(slotId);
@@ -2216,6 +2247,43 @@ function update3v3UI(slots, data) {
             statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
             statusEl.classList.remove('text-green-600');
             statusEl.classList.add('text-purple-700', 'animate-pulse');
+        }
+    }
+}
+
+// =======================================================
+// FUNGSI BARU: POPUP UNTUK KAPTEN TUKAR NAMA PASUKAN
+// =======================================================
+window.tukarNamaPasukan = async function(teamKey) {
+    if (!currentLobbyId) return;
+
+    const { value: newName } = await Swal.fire({
+        title: 'Tukar Nama Pasukan',
+        input: 'text',
+        inputLabel: `Masukkan nama khas untuk Pasukan ${teamKey}`,
+        inputPlaceholder: 'Cth: Garuda Merah',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        inputValidator: (value) => {
+            if (!value) {
+                return 'Nama pasukan tidak boleh dibiarkan kosong!';
+            }
+            if (value.length > 20) {
+                return 'Teks terlalu panjang! Maksimum 20 huruf sahaja.';
+            }
+        }
+    });
+
+    if (newName) {
+        // Hantar nama baharu ke Firebase (Semua orang akan nampak terus!)
+        try {
+            await rtdb.ref("arenas/" + currentLobbyId).update({
+                [`teamNames/${teamKey}`]: newName.toUpperCase()
+            });
+        } catch (err) {
+            console.error("Gagal menukar nama pasukan:", err);
+            Swal.fire('Ralat', 'Gagal menukar nama pasukan.', 'error');
         }
     }
 }
