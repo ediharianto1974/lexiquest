@@ -2157,7 +2157,6 @@ function listenTo3v3Lobby(roomId) {
             return;
         }
 
-        // 🛑 PEMBETULAN DI SINI: Hantar 'data'
         update3v3UI(slots, data);
 
         if (data.status === "waiting") {
@@ -2174,44 +2173,12 @@ function listenTo3v3Lobby(roomId) {
     });
 }
 
-// 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST
+// 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST (Kekal Sama)
 function update3v3UI(slots, data) {
     let count = 0;
     const teams = ['A', 'B'];
     
-    // 1. Kenal pasti pemain ini duduk di slot mana
-    let mySlotKey = null;
-    if (typeof studentInfo !== 'undefined') {
-        for (let s in slots) {
-            if (slots[s] === studentInfo.name) {
-                mySlotKey = s;
-                break;
-            }
-        }
-    }
-
-    // 2. Dapatkan nama pasukan dari Firebase, default ke "Team A" / "Team B"
-    const teamNames = data.teamNames || { A: "Team A", B: "Team B" };
-    
     teams.forEach(t => {
-        // ====================================================
-        // KEMASKINI TAJUK NAMA PASUKAN (UNTUK KAPTEN A1 / B1)
-        // ====================================================
-        const teamNameEl = document.getElementById(`team-name-${t}`);
-        if (teamNameEl) {
-            let tName = teamNames[t];
-            let headerHtml = `<span class="font-black">${tName}</span>`;
-            
-            // Jika pemain ini adalah Kapten pasukan tersebut (Slot 1)
-            if (mySlotKey === `${t}1`) {
-                headerHtml += ` <button onclick="tukarNamaPasukan('${t}')" class="ml-3 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-lg hover:bg-yellow-300 transition shadow-md" title="Tukar Nama Pasukan"><i class="fas fa-edit"></i> Edit</button>`;
-            }
-            teamNameEl.innerHTML = headerHtml;
-        }
-
-        // ====================================================
-        // GELUNG UNTUK SLOT PEMAIN (1, 2, 3) - KEKAL SAMA
-        // ====================================================
         for (let i = 1; i <= 3; i++) {
             const slotId = `slot-${t}${i}`;
             const slotEl = document.getElementById(slotId);
@@ -2237,53 +2204,28 @@ function update3v3UI(slots, data) {
         }
     });
 
-    const statusEl = document.getElementById('lobby-3v3-status');
+const statusEl = document.getElementById('lobby-3v3-status');
     if (statusEl) {
         if (count >= 6) {
+            // 1. Tukar paparan di skrin
             statusEl.innerText = "LOBBY FULL! GET READY...";
             statusEl.classList.remove('text-purple-700', 'animate-pulse');
             statusEl.classList.add('text-green-600');
+
+            // ==========================================
+            // 2. TAMBAH KOD INI: Beritahu Firebase untuk masuk fasa Banning
+            // ==========================================
+            if (data.status === "waiting") {
+                setTimeout(() => {
+                    rtdb.ref("arenas/" + currentLobbyId).update({ status: "banning" });
+                }, 2000); // Tunggu 2 saat supaya murid sempat baca "GET READY"
+            }
+            // ==========================================
+
         } else {
             statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
             statusEl.classList.remove('text-green-600');
             statusEl.classList.add('text-purple-700', 'animate-pulse');
-        }
-    }
-}
-
-// =======================================================
-// FUNGSI BARU: POPUP UNTUK KAPTEN TUKAR NAMA PASUKAN
-// =======================================================
-window.tukarNamaPasukan = async function(teamKey) {
-    if (!currentLobbyId) return;
-
-    const { value: newName } = await Swal.fire({
-        title: 'Tukar Nama Pasukan',
-        input: 'text',
-        inputLabel: `Masukkan nama khas untuk Pasukan ${teamKey}`,
-        inputPlaceholder: 'Cth: Garuda Merah',
-        showCancelButton: true,
-        confirmButtonText: 'Simpan',
-        cancelButtonText: 'Batal',
-        inputValidator: (value) => {
-            if (!value) {
-                return 'Nama pasukan tidak boleh dibiarkan kosong!';
-            }
-            if (value.length > 20) {
-                return 'Teks terlalu panjang! Maksimum 20 huruf sahaja.';
-            }
-        }
-    });
-
-    if (newName) {
-        // Hantar nama baharu ke Firebase (Semua orang akan nampak terus!)
-        try {
-            await rtdb.ref("arenas/" + currentLobbyId).update({
-                [`teamNames/${teamKey}`]: newName.toUpperCase()
-            });
-        } catch (err) {
-            console.error("Gagal menukar nama pasukan:", err);
-            Swal.fire('Ralat', 'Gagal menukar nama pasukan.', 'error');
         }
     }
 }
@@ -2347,22 +2289,10 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 }
 
 // ==========================================
-// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI BERGILIR (TURN-BASED)
+// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI AUTOMATIK SISTEM
 // ==========================================
 
-// Variabel global untuk pemasa Ban supaya kita boleh reset/hentikan ia
-let banTimerInterval = null;
-let battle3v3_isActive = false;
-
 function masukFasaDraft(data) {
-	const teamNames = data.teamNames || { A: "TEAM A", B: "TEAM B" };
-
-	const draftTeamA = document.getElementById('draft-team-name-A');
-	const draftTeamB = document.getElementById('draft-team-name-B');
-
-	if (draftTeamA) draftTeamA.innerText = teamNames.A;
-	if (draftTeamB) draftTeamB.innerText = teamNames.B;
-	
     const lobbyScreen = document.getElementById('arena-3v3-lobby');
     const draftScreen = document.getElementById('arena-3v3-draft');
     
@@ -2385,90 +2315,52 @@ function masukFasaDraft(data) {
     const titleEl = document.getElementById('draft-title'); 
     
     // --------------------------------------------------------
-    // FASA BANNING (BERGILIR)
+    // FASA BANNING
     // --------------------------------------------------------
     if (data.status === "banning") {
+        if (titleEl) titleEl.innerText = "FASA BAN: BUANG 3 KATEGORI!";
+        renderBanPhase(data, container, myTeam);
         
-        // 1. Tentukan urutan giliran Ban (A1 -> B1 -> A2 -> B2 -> A3 -> B3)
-        const urutanBan = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
+        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, sistem terus tukar ke fasa picking
         const totalBans = data.bannedCategories ? data.bannedCategories.length : 0;
-        
-        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, terus tukar fasa
         if (totalBans >= 6) {
-            clearInterval(banTimerInterval);
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "drafting" });
-            return; // Berhenti di sini, biarkan listener panggil fasa drafting
         }
-
-        // 2. Tentukan siapa yang memegang giliran sekarang
-        const giliranSekarang = urutanBan[totalBans]; 
-        const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
-
-        // 3. Paparkan tajuk dan status giliran
-        if (titleEl) {
-            if (mySlotKey === giliranSekarang) {
-                titleEl.innerHTML = `<span class="text-red-500 animate-pulse">GILIRAN ANDA! BUANG 1 KATEGORI (<span id="ban-timer">15</span>s)</span>`;
-            } else {
-                titleEl.innerHTML = `MENUNGGU ${giliranSekarang} (${namaPemainGiliran}) MEMBUANG KATEGORI... (<span id="ban-timer">15</span>s)`;
-            }
-        }
-
-        // 4. Lukis butang (Hanya buka butang jika mySlotKey === giliranSekarang)
-        renderBanPhase(data, container, mySlotKey, giliranSekarang);
-        
-        // 5. Mulakan pemasa Auto-Ban 15 saat
-        mulakanPemasaBan(data, mySlotKey, giliranSekarang);
         
     } 
     // --------------------------------------------------------
-    // FASA DRAFTING (PICKING) - BERGILIR
+    // FASA DRAFTING (PICKING)
     // --------------------------------------------------------
     else if (data.status === "drafting") {
-        if (typeof banTimerInterval !== 'undefined') clearInterval(banTimerInterval); 
+        if (titleEl) titleEl.innerText = "FASA DRAFT: PILIH KATEGORI ANDA!";
+        renderPickPhase(data, container, mySlotKey);
         
-        const urutanPick = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
-        const selections = data.selections || {};
-        const totalSelected = Object.keys(selections).length;
+        const totalSelected = data.selections ? Object.keys(data.selections).length : 0;
         
-        // Jika 6 orang dah pilih, terus masuk battle
+        // 🤖 KUASA SISTEM: Jika 6 kategori sudah dipilih, sistem terus mula perlawanan
         if (totalSelected >= 6) { 
-            if (pickTimerInterval) clearInterval(pickTimerInterval);
+            // Update status ke playing di Firebase
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "playing" });
+            
+            // Bawa pemain masuk ke perlawanan
             masukBattle(data, mySlotKey); 
-            return;
         }
-
-        // Tentukan giliran siapa untuk Pick
-        const giliranSekarang = urutanPick[totalSelected];
-        const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
-
-        // Paparkan tajuk dan status giliran
-        if (titleEl) {
-            if (mySlotKey === giliranSekarang) {
-                titleEl.innerHTML = `<span class="text-yellow-500 animate-pulse">GILIRAN ANDA! PILIH 1 KATEGORI (<span id="pick-timer">15</span>s)</span>`;
-            } else {
-                titleEl.innerHTML = `MENUNGGU ${giliranSekarang} (${namaPemainGiliran}) MEMILIH KATEGORI... (<span id="pick-timer">15</span>s)`;
-            }
-        }
-
-        // Lukis butang
-        renderPickPhase(data, container, mySlotKey, giliranSekarang);
-        
-        // Mulakan pemasa
-        mulakanPemasaPick(data, mySlotKey, giliranSekarang);
     }
-	
+}
+
 // ---------------------------------------------------------
-// FASA 1: BANNING (BUANG KATEGORI) - SISTEM BERGILIR & AUTO
+// FASA 1: BANNING (BUANG KATEGORI)
 // ---------------------------------------------------------
-function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
+function renderBanPhase(data, container, myTeam) {
     if (!container || !data.draftPool) return;
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
+    const banCountA = data.banCount && data.banCount.A ? data.banCount.A : 0;
+    const banCountB = data.banCount && data.banCount.B ? data.banCount.B : 0;
     
-    // Semak adakah INI GILIRAN SAYA?
-    let isMyTurn = (mySlotKey === giliranSekarang);
+    let myTeamBanCount = myTeam === 'A' ? banCountA : banCountB;
+    let bolehBanLagi = (myTeamBanCount < 3);
 
     data.draftPool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
@@ -2483,209 +2375,92 @@ function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
             btn.innerHTML = `<div class="text-red-500 line-through font-black text-xl mb-2">${displayName}</div>
                              <div class="text-sm text-red-500 font-bold">Telah Dibuang</div>`;
         } else {
-            // Jika giliran saya: Butang biru terang dan sedia ditekan.
-            // Jika bukan giliran saya: Butang kelabu, tidak boleh ditekan.
-            if (isMyTurn) {
-                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500 cursor-pointer";
-                btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
-                                 <div class="text-sm text-red-400 font-bold animate-pulse">Klik untuk BAN</div>`;
-                btn.onclick = () => banKategori(catKey, giliranSekarang);
+            btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500";
+            btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
+                             <div class="text-sm text-slate-400 italic">Klik untuk BAN</div>`;
+            
+            if (bolehBanLagi && myTeam) {
+                btn.onclick = () => banKategori(catKey, myTeam);
             } else {
-                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
-                btn.innerHTML = `<div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                                 <div class="text-sm text-slate-500 italic">Menunggu...</div>`;
-                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
+                btn.classList.add('opacity-70', 'cursor-not-allowed');
+                btn.onclick = () => Swal.fire('Nanti Dulu!', 'Pasukan anda sudah membuang 3 kategori.', 'warning');
             }
         }
         container.appendChild(btn);
     });
 }
 
-// 🟢 GUNA RTDB TRANSACTION UNTUK BAN KATEGORI (Dimudahkan)
-async function banKategori(catKey, mySlotKey) {
+// 🟢 GUNA RTDB TRANSACTION UNTUK BAN KATEGORI
+async function banKategori(catKey, myTeam) {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
     
     try {
-        await lobbyRef.transaction((data) => {
+        lobbyRef.transaction((data) => {
             if (data) {
                 let bans = data.bannedCategories || [];
-                // Tak perlu semak myTeam < 3 lagi. Asalkan kurang 6 dan belum diban.
-                if (!bans.includes(catKey) && bans.length < 6) {
+                let counts = data.banCount || { A: 0, B: 0 };
+                
+                if (!bans.includes(catKey) && counts[myTeam] < 3) {
                     if (!data.bannedCategories) data.bannedCategories = [];
                     data.bannedCategories.push(catKey);
+                    
+                    if (!data.banCount) data.banCount = { A: 0, B: 0 };
+                    data.banCount[myTeam] = (data.banCount[myTeam] || 0) + 1;
                 }
             }
             return data;
         });
-        
-        // Lepas berjaya ban manual, hentikan timer di browser kita 
-        clearInterval(banTimerInterval);
-
     } catch (err) {
         console.error("Gagal membuang kategori:", err);
     }
 }
 
-// =======================================================
-// FUNGSI BARU: PEMASA 15 SAAT & AUTO-BAN
-// =======================================================
-function mulakanPemasaBan(data, mySlotKey, giliranSekarang) {
-    let timeLeft = 15;
-    const timerSpan = document.getElementById('ban-timer');
-    
-    // Hentikan sebarang timer lama sebelum mulakan yang baru
-    if (banTimerInterval) clearInterval(banTimerInterval);
-
-    banTimerInterval = setInterval(async () => {
-        timeLeft--;
-        if (timerSpan) timerSpan.innerText = timeLeft;
-
-        // BILA MASA TAMAT (0 SAAT)
-        if (timeLeft <= 0) {
-            clearInterval(banTimerInterval);
-            
-            // 🤖 AUTO-BAN: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN TERSEBUT
-            if (mySlotKey === giliranSekarang) {
-                
-                const allCategories = data.draftPool || [];
-                const bannedCategories = data.bannedCategories || [];
-                
-                // Cari mana-mana kategori yang BELUM di-ban
-                const availableCategories = allCategories.filter(cat => !bannedCategories.includes(cat));
-                
-                if (availableCategories.length > 0) {
-                    // Pilih rawak
-                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
-                    
-                    Swal.fire({
-                        title: 'Masa Tamat!',
-                        text: `Sistem membuang secara rawak: ${randomCategory.toUpperCase()}`,
-                        icon: 'info',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-
-                    // Hantar pilihan rawak ke Firebase menggunakan fungsi yang sama
-                    banKategori(randomCategory, mySlotKey);
-                }
-            }
-        }
-    }, 1000);
-}
-
-// =======================================================
-// FUNGSI BARU: PEMASA 15 SAAT & AUTO-PICK
-// =======================================================
-let pickTimerInterval = null;
-
-function mulakanPemasaPick(data, mySlotKey, giliranSekarang) {
-    let timeLeft = 15;
-    const timerSpan = document.getElementById('pick-timer');
-    
-    if (pickTimerInterval) clearInterval(pickTimerInterval);
-
-    pickTimerInterval = setInterval(async () => {
-        timeLeft--;
-        if (timerSpan) timerSpan.innerText = timeLeft;
-
-        // BILA MASA TAMAT (0 SAAT)
-        if (timeLeft <= 0) {
-            clearInterval(pickTimerInterval);
-            
-            // 🤖 AUTO-PICK: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN
-            if (mySlotKey === giliranSekarang) {
-                
-                const bans = data.bannedCategories || [];
-                const selections = data.selections || {};
-                const takenCategories = Object.values(selections);
-                
-                // Cari kategori yang BELUM di-ban DAN BELUM dipilih
-                const availableCategories = data.draftPool.filter(
-                    cat => !bans.includes(cat) && !takenCategories.includes(cat)
-                );
-                
-                if (availableCategories.length > 0) {
-                    // Pilih rawak
-                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
-                    
-                    Swal.fire({
-                        title: 'Masa Tamat!',
-                        text: `Sistem memilih secara rawak: ${randomCategory.toUpperCase()}`,
-                        icon: 'info',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-
-                    // Hantar pilihan rawak ke Firebase
-                    pilihKategoriDraft(randomCategory, mySlotKey);
-                }
-            }
-        }
-    }, 1000);
-}
-
 // ---------------------------------------------------------
-// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL) - BERGILIR
+// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL)
 // ---------------------------------------------------------
-function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
+function renderPickPhase(data, container, mySlotKey) {
     if (!container || !data.draftPool) return;
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
 
-    // Semak adakah INI GILIRAN SAYA?
-    let isMyTurn = (mySlotKey === giliranSekarang);
-
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
         
         const btn = document.createElement('button');
         btn.id = `btn-draft-${catKey}`;
-        btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
+        btn.className = "group relative bg-slate-800 border-2 border-slate-700 p-6 rounded-2xl transition-all hover:scale-105 hover:border-yellow-500 flex flex-col items-center justify-center min-w-[200px]";
         
         let statusText = "Tersedia";
-        let isTaken = false;
-        let whoTookIt = null;
+        let isDisabled = false;
+        let statusClass = "text-slate-400";
 
-        // Semak jika kategori ini sudah diambil oleh sesiapa
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
-                    isTaken = true;
-                    whoTookIt = slot;
-                    break;
+                    const teamInvolved = slot.charAt(0);
+                    const myTeam = mySlotKey ? mySlotKey.charAt(0) : '';
+                    
+                    if (teamInvolved === myTeam) {
+                        statusText = (slot === mySlotKey) ? "ANDA PILIH" : "RAKAN AMBIL";
+                        statusClass = "text-yellow-500 font-bold animate-pulse";
+                        isDisabled = true;
+                    }
                 }
             }
         }
 
-        if (isTaken) {
-            // KATEGORI SUDAH DIAMBIL
-            statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
-            const colorClass = (whoTookIt === mySlotKey) ? "text-yellow-500" : "text-slate-500";
-            btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
-            btn.innerHTML = `
-                <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
-                <div class="text-sm ${colorClass} font-bold">${statusText}</div>
-            `;
+        btn.innerHTML = `
+            <div class="text-white font-black text-xl mb-2">${displayName}</div>
+            <div class="text-sm ${statusClass} italic">${statusText}</div>
+        `;
+
+        if (isDisabled) {
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
         } else {
-            // KATEGORI MASIH KOSONG
-            if (isMyTurn) {
-                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer";
-                btn.innerHTML = `
-                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
-                `;
-                btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
-            } else {
-                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
-                btn.innerHTML = `
-                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-slate-500 italic">Menunggu...</div>
-                `;
-                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
-            }
+            btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey, data);
         }
 
         container.appendChild(btn);
@@ -2694,19 +2469,25 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
 }
 
-// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI (Dimudahkan)
-async function pilihKategoriDraft(catKey, mySlotKey) {
+// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI
+async function pilihKategoriDraft(catKey, mySlotKey, lobbyData) {
     if (!mySlotKey || !currentLobbyId) return;
+
+    const myTeam = mySlotKey.charAt(0); 
+    const selections = lobbyData.selections || {};
+
+    for (let slot in selections) {
+        if (slot.charAt(0) === myTeam && selections[slot] === catKey) {
+            Swal.fire('Kategori Diambil!', 'Rakan sepasukan anda sudah memilih kategori ini.', 'warning');
+            return;
+        }
+    }
 
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     try {
         await lobbyRef.update({
-            [`selections/${mySlotKey}`]: catKey 
+            [`selections/${mySlotKey}`]: catKey // Guna '/' bukan '.'
         });
-        
-        // Hentikan timer kita bila dah berjaya pilih
-        if (typeof pickTimerInterval !== 'undefined') clearInterval(pickTimerInterval);
-        
     } catch (err) {
         console.error("Gagal memilih kategori:", err);
     }
@@ -2742,8 +2523,8 @@ function kemaskiniPilihanDraftUI(selections, mySlotKey) {
     }
 }
 
-// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT (VERSI GLOBAL KEBAL)
-window.join3v3Team = async function(team, slotNum) {
+// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT
+async function join3v3Team(team, slotNum) {
     if (!currentLobbyId) return;
     const slotKey = `${team}${slotNum}`;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
@@ -2755,7 +2536,8 @@ window.join3v3Team = async function(team, slotNum) {
                 
                 // Semak kalau slot dah kena rembat
                 if (data.slots[slotKey]) {
-                    return; // Batalkan transaksi
+                    // Batalkan transaksi
+                    return;
                 }
 
                 // Buang nama saya kalau saya dah ada kat slot lain (lompat team)
@@ -2779,10 +2561,10 @@ window.join3v3Team = async function(team, slotNum) {
     } catch (err) {
         console.error(err);
     }
-};
+}
 
-// 🟢 GUNA RTDB UNTUK TINGGALKAN SLOT (VERSI GLOBAL KEBAL)
-window.leaveAll3v3Slots = function() {
+// 🟢 GUNA RTDB UNTUK TINGGALKAN SLOT (Bila Keluar)
+function leaveAll3v3Slots() {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     
@@ -2801,8 +2583,8 @@ window.leaveAll3v3Slots = function() {
             if(changed) lobbyRef.update({ slots: slots });
         }
     });
-};
-	
+}
+
 // ==========================================
 // LANGKAH 4: ARENA BATTLE & PENGURUSAN MARKAH (VERSI RTDB)
 // ==========================================
@@ -3212,24 +2994,24 @@ async function tamatkanBattle3v3(mySlotKey) {
                 finalCoins = baseCoins + bonusCoins;
             }
 
-// =======================================================
-// ✅ KEMASKINI: SIMPAN KE FIELD totalScore (BUKAN xp)
-// =======================================================
-if (typeof studentInfo !== 'undefined' && studentInfo.name) {
-    const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
-    const playerRef = db.collection("players").doc(docId);
-    
-    try {
-        // Kita tukar 'xp' kepada 'totalScore' supaya ia menambah nilai lama
-        await playerRef.update({
-            totalScore: firebase.firestore.FieldValue.increment(finalXP),
-            coins: firebase.firestore.FieldValue.increment(finalCoins)
-        });
-        console.log("Ganjaran berjaya ditambah ke totalScore dalam Firestore!");
-    } catch (err) {
-        console.error("Gagal mengemaskini totalScore:", err);
-    }
-}
+			// =======================================================
+            // 🛑 TAMBAH KOD INI DI SINI (SIMPAN KE AKAUN MURID)
+            // =======================================================
+            if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+                const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+                const playerRef = db.collection("players").doc(docId);
+                
+                try {
+                    // Kita guna increment supaya markah baru ditambah dengan markah lama
+                    await playerRef.update({
+                        xp: firebase.firestore.FieldValue.increment(finalXP),
+                        coins: firebase.firestore.FieldValue.increment(finalCoins)
+                    });
+                    console.log("Ganjaran berjaya disimpan ke akaun Firestore!");
+                } catch (err) {
+                    console.error("Gagal menyimpan ganjaran ke Firestore:", err);
+                }
+            }
 
             // 4. PAPAR SKRIN KEPUTUSAN (Memanggil fungsi seterusnya)
             if (typeof paparSkrinKeputusan3v3 === 'function') {
@@ -3300,6 +3082,3 @@ function paparSkrinKeputusan3v3(status, totalXP, totalCoins, pencapaianList, sco
         </div>
     `;
   }
-}
-
-console.log("GAME.JS BERJAYA DIBACA SAMPAI HABIS!");
