@@ -2204,12 +2204,24 @@ function update3v3UI(slots) {
         }
     });
 
-    const statusEl = document.getElementById('lobby-3v3-status');
+const statusEl = document.getElementById('lobby-3v3-status');
     if (statusEl) {
         if (count >= 6) {
+            // 1. Tukar paparan di skrin
             statusEl.innerText = "LOBBY FULL! GET READY...";
             statusEl.classList.remove('text-purple-700', 'animate-pulse');
             statusEl.classList.add('text-green-600');
+
+            // ==========================================
+            // 2. TAMBAH KOD INI: Beritahu Firebase untuk masuk fasa Banning
+            // ==========================================
+            if (data.status === "waiting") {
+                setTimeout(() => {
+                    rtdb.ref("arenas/" + currentLobbyId).update({ status: "banning" });
+                }, 2000); // Tunggu 2 saat supaya murid sempat baca "GET READY"
+            }
+            // ==========================================
+
         } else {
             statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
             statusEl.classList.remove('text-green-600');
