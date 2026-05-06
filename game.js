@@ -2152,7 +2152,7 @@ function listenTo3v3Lobby(roomId) {
 
         if (battle3v3_isActive) return; 
 
-        if (data.status === "drafting") {
+        if (data.status === "banning" || data.status === "drafting") {
             masukFasaDraft(data); 
             return;
         }
