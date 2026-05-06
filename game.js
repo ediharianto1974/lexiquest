@@ -2352,6 +2352,7 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 
 // Variabel global untuk pemasa Ban supaya kita boleh reset/hentikan ia
 let banTimerInterval = null;
+let battle3v3_isActive = false;
 
 function masukFasaDraft(data) {
 	const teamNames = data.teamNames || { A: "TEAM A", B: "TEAM B" };
