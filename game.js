@@ -2157,7 +2157,7 @@ function listenTo3v3Lobby(roomId) {
             return;
         }
 
-        update3v3UI(slots);
+        update3v3UI(slots, data);
 
         if (data.status === "waiting") {
             const jumlahPemain = Object.keys(slots).length;
@@ -2174,7 +2174,7 @@ function listenTo3v3Lobby(roomId) {
 }
 
 // 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST (Kekal Sama)
-function update3v3UI(slots) {
+function update3v3UI(slots, data) {
     let count = 0;
     const teams = ['A', 'B'];
     
