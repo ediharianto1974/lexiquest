@@ -2277,7 +2277,7 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 }
 
 // ==========================================
-// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI RTDB
+// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI AUTOMATIK SISTEM
 // ==========================================
 
 function masukFasaDraft(data) {
@@ -2302,27 +2302,36 @@ function masukFasaDraft(data) {
     const container = document.getElementById('draft-category-buttons');
     const titleEl = document.getElementById('draft-title'); 
     
+    // --------------------------------------------------------
+    // FASA BANNING
+    // --------------------------------------------------------
     if (data.status === "banning") {
         if (titleEl) titleEl.innerText = "FASA BAN: BUANG 3 KATEGORI!";
         renderBanPhase(data, container, myTeam);
         
-        // Host pantau: Jika 6 ban sudah dibuat, tukar ke fasa picking (RTDB)
-        if (is3v3Host && data.bannedCategories && data.bannedCategories.length === 6) {
+        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, sistem terus tukar ke fasa picking
+        const totalBans = data.bannedCategories ? data.bannedCategories.length : 0;
+        if (totalBans >= 6) {
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "drafting" });
         }
         
-    } else if (data.status === "drafting") {
+    } 
+    // --------------------------------------------------------
+    // FASA DRAFTING (PICKING)
+    // --------------------------------------------------------
+    else if (data.status === "drafting") {
         if (titleEl) titleEl.innerText = "FASA DRAFT: PILIH KATEGORI ANDA!";
         renderPickPhase(data, container, mySlotKey);
         
         const totalSelected = data.selections ? Object.keys(data.selections).length : 0;
         
-        // TUKAR KEPADA 6 UNTUK SEBENAR, SEKARANG 1 UNTUK UJIAN
-        if (is3v3Host && totalSelected >= 6) { 
+        // 🤖 KUASA SISTEM: Jika 6 kategori sudah dipilih, sistem terus mula perlawanan
+        if (totalSelected >= 6) { 
+            // Update status ke playing di Firebase
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "playing" });
+            
+            // Bawa pemain masuk ke perlawanan
             masukBattle(data, mySlotKey); 
-        } else if (!is3v3Host && totalSelected >= 6) {
-            masukBattle(data, mySlotKey);
         }
     }
 }
