@@ -3300,3 +3300,4 @@ function paparSkrinKeputusan3v3(status, totalXP, totalCoins, pencapaianList, sco
         </div>
     `;
   }
+}
