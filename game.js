@@ -1946,11 +1946,11 @@ async function check3v3Access() {
         const playerDoc = await db.collection("players").doc(docId).get();
         if (playerDoc.exists) {
             const data = playerDoc.data();
-            if (data.lastArena3v3Date === today && (data.arena3v3CountToday || 0) >= 2) {
+            if (data.lastArena3v3Date === today && (data.arena3v3CountToday || 0) >= 20) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Daily Limit Reached 🛑',
-                    text: 'You have played the maximum limit of 2 Arena matches today. Your warriors are tired. Please come back tomorrow!'
+                    text: 'You have played the maximum limit of 20 Arena matches today. Your warriors are tired. Please come back tomorrow!'
                 });
                 return; // Halang masuk
             }
