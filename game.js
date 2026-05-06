@@ -2354,6 +2354,14 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 let banTimerInterval = null;
 
 function masukFasaDraft(data) {
+	const teamNames = data.teamNames || { A: "TEAM A", B: "TEAM B" };
+
+	const draftTeamA = document.getElementById('draft-team-name-A');
+	const draftTeamB = document.getElementById('draft-team-name-B');
+
+	if (draftTeamA) draftTeamA.innerText = teamNames.A;
+	if (draftTeamB) draftTeamB.innerText = teamNames.B;
+	
     const lobbyScreen = document.getElementById('arena-3v3-lobby');
     const draftScreen = document.getElementById('arena-3v3-draft');
     
