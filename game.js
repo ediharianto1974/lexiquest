@@ -2350,44 +2350,60 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 // LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI BERGILIR (TURN-BASED)
 // ==========================================
 
-// Variabel global untuk pemasa Ban & Pick
+// Variabel global untuk pemasa Ban supaya kita boleh reset/hentikan ia
 let banTimerInterval = null;
-let pickTimerInterval = null;
 
-function masukFasaDraft(data, mySlotKey, container) {
-    // 1. Kemaskini Nama Pasukan di Skrin Draft
-    const teamNames = data.teamNames || { A: "TEAM A", B: "TEAM B" };
-    const draftTeamA = document.getElementById('draft-team-name-A');
-    const draftTeamB = document.getElementById('draft-team-name-B');
-    if (draftTeamA) draftTeamA.innerText = teamNames.A;
-    if (draftTeamB) draftTeamB.innerText = teamNames.B;
-    
-    // 2. Papar Skrin Draft
+function masukFasaDraft(data) {
+	const teamNames = data.teamNames || { A: "TEAM A", B: "TEAM B" };
+
+	const draftTeamA = document.getElementById('draft-team-name-A');
+	const draftTeamB = document.getElementById('draft-team-name-B');
+
+	if (draftTeamA) draftTeamA.innerText = teamNames.A;
+	if (draftTeamB) draftTeamB.innerText = teamNames.B;
+	
     const lobbyScreen = document.getElementById('arena-3v3-lobby');
     const draftScreen = document.getElementById('arena-3v3-draft');
+    
     if (lobbyScreen) lobbyScreen.classList.add('hidden');
     if (draftScreen) draftScreen.classList.remove('hidden');
 
+    let mySlotKey = null;
+    let myTeam = null;
+    for (let key in data.slots) {
+        if (data.slots[key] === studentInfo.name) {
+            mySlotKey = key;
+            myTeam = key.charAt(0); 
+            break;
+        }
+    }
+
     paparkanNamaDraft(data);
 
-    const titleEl = document.getElementById('draft-title') || container.parentElement.querySelector('p'); 
+    const container = document.getElementById('draft-category-buttons');
+    const titleEl = document.getElementById('draft-title'); 
     
     // --------------------------------------------------------
     // FASA BANNING (BERGILIR)
     // --------------------------------------------------------
     if (data.status === "banning") {
+        
+        // 1. Tentukan urutan giliran Ban (A1 -> B1 -> A2 -> B2 -> A3 -> B3)
         const urutanBan = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
         const totalBans = data.bannedCategories ? data.bannedCategories.length : 0;
         
+        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, terus tukar fasa
         if (totalBans >= 6) {
-            if (banTimerInterval) clearInterval(banTimerInterval);
+            clearInterval(banTimerInterval);
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "drafting" });
-            return; 
+            return; // Berhenti di sini, biarkan listener panggil fasa drafting
         }
 
+        // 2. Tentukan siapa yang memegang giliran sekarang
         const giliranSekarang = urutanBan[totalBans]; 
         const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
 
+        // 3. Paparkan tajuk dan status giliran
         if (titleEl) {
             if (mySlotKey === giliranSekarang) {
                 titleEl.innerHTML = `<span class="text-red-500 animate-pulse">GILIRAN ANDA! BUANG 1 KATEGORI (<span id="ban-timer">15</span>s)</span>`;
@@ -2396,19 +2412,24 @@ function masukFasaDraft(data, mySlotKey, container) {
             }
         }
 
+        // 4. Lukis butang (Hanya buka butang jika mySlotKey === giliranSekarang)
         renderBanPhase(data, container, mySlotKey, giliranSekarang);
+        
+        // 5. Mulakan pemasa Auto-Ban 15 saat
         mulakanPemasaBan(data, mySlotKey, giliranSekarang);
+        
     } 
     // --------------------------------------------------------
     // FASA DRAFTING (PICKING) - BERGILIR
     // --------------------------------------------------------
     else if (data.status === "drafting") {
-        if (banTimerInterval) clearInterval(banTimerInterval); 
+        if (typeof banTimerInterval !== 'undefined') clearInterval(banTimerInterval); 
         
         const urutanPick = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
         const selections = data.selections || {};
         const totalSelected = Object.keys(selections).length;
         
+        // Jika 6 orang dah pilih, terus masuk battle
         if (totalSelected >= 6) { 
             if (pickTimerInterval) clearInterval(pickTimerInterval);
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "playing" });
@@ -2416,9 +2437,11 @@ function masukFasaDraft(data, mySlotKey, container) {
             return;
         }
 
+        // Tentukan giliran siapa untuk Pick
         const giliranSekarang = urutanPick[totalSelected];
         const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
 
+        // Paparkan tajuk dan status giliran
         if (titleEl) {
             if (mySlotKey === giliranSekarang) {
                 titleEl.innerHTML = `<span class="text-yellow-500 animate-pulse">GILIRAN ANDA! PILIH 1 KATEGORI (<span id="pick-timer">15</span>s)</span>`;
@@ -2427,11 +2450,13 @@ function masukFasaDraft(data, mySlotKey, container) {
             }
         }
 
+        // Lukis butang
         renderPickPhase(data, container, mySlotKey, giliranSekarang);
+        
+        // Mulakan pemasa
         mulakanPemasaPick(data, mySlotKey, giliranSekarang);
     }
-} // 🛑 KURUNGAN INILAH YANG TERTINGGAL TADI! KINI IA SELAMAT.
-
+	
 // ---------------------------------------------------------
 // FASA 1: BANNING (BUANG KATEGORI) - SISTEM BERGILIR & AUTO
 // ---------------------------------------------------------
@@ -2440,6 +2465,8 @@ function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
+    
+    // Semak adakah INI GILIRAN SAYA?
     let isMyTurn = (mySlotKey === giliranSekarang);
 
     data.draftPool.forEach((catKey) => {
@@ -2455,11 +2482,13 @@ function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
             btn.innerHTML = `<div class="text-red-500 line-through font-black text-xl mb-2">${displayName}</div>
                              <div class="text-sm text-red-500 font-bold">Telah Dibuang</div>`;
         } else {
+            // Jika giliran saya: Butang biru terang dan sedia ditekan.
+            // Jika bukan giliran saya: Butang kelabu, tidak boleh ditekan.
             if (isMyTurn) {
                 btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500 cursor-pointer";
                 btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
                                  <div class="text-sm text-red-400 font-bold animate-pulse">Klik untuk BAN</div>`;
-                btn.onclick = () => banKategori(catKey, mySlotKey);
+                btn.onclick = () => banKategori(catKey, giliranSekarang);
             } else {
                 btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
                 btn.innerHTML = `<div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
@@ -2471,13 +2500,16 @@ function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
     });
 }
 
+// 🟢 GUNA RTDB TRANSACTION UNTUK BAN KATEGORI (Dimudahkan)
 async function banKategori(catKey, mySlotKey) {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
+    
     try {
         await lobbyRef.transaction((data) => {
             if (data) {
                 let bans = data.bannedCategories || [];
+                // Tak perlu semak myTeam < 3 lagi. Asalkan kurang 6 dan belum diban.
                 if (!bans.includes(catKey) && bans.length < 6) {
                     if (!data.bannedCategories) data.bannedCategories = [];
                     data.bannedCategories.push(catKey);
@@ -2485,36 +2517,107 @@ async function banKategori(catKey, mySlotKey) {
             }
             return data;
         });
-        if (banTimerInterval) clearInterval(banTimerInterval);
+        
+        // Lepas berjaya ban manual, hentikan timer di browser kita 
+        clearInterval(banTimerInterval);
+
     } catch (err) {
         console.error("Gagal membuang kategori:", err);
     }
 }
 
+// =======================================================
+// FUNGSI BARU: PEMASA 15 SAAT & AUTO-BAN
+// =======================================================
 function mulakanPemasaBan(data, mySlotKey, giliranSekarang) {
     let timeLeft = 15;
     const timerSpan = document.getElementById('ban-timer');
+    
+    // Hentikan sebarang timer lama sebelum mulakan yang baru
     if (banTimerInterval) clearInterval(banTimerInterval);
 
     banTimerInterval = setInterval(async () => {
         timeLeft--;
         if (timerSpan) timerSpan.innerText = timeLeft;
 
+        // BILA MASA TAMAT (0 SAAT)
         if (timeLeft <= 0) {
             clearInterval(banTimerInterval);
+            
+            // 🤖 AUTO-BAN: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN TERSEBUT
             if (mySlotKey === giliranSekarang) {
+                
                 const allCategories = data.draftPool || [];
                 const bannedCategories = data.bannedCategories || [];
+                
+                // Cari mana-mana kategori yang BELUM di-ban
                 const availableCategories = allCategories.filter(cat => !bannedCategories.includes(cat));
                 
                 if (availableCategories.length > 0) {
+                    // Pilih rawak
                     const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+                    
                     Swal.fire({
                         title: 'Masa Tamat!',
                         text: `Sistem membuang secara rawak: ${randomCategory.toUpperCase()}`,
-                        icon: 'info', timer: 2000, showConfirmButton: false
+                        icon: 'info',
+                        timer: 2000,
+                        showConfirmButton: false
                     });
+
+                    // Hantar pilihan rawak ke Firebase menggunakan fungsi yang sama
                     banKategori(randomCategory, mySlotKey);
+                }
+            }
+        }
+    }, 1000);
+}
+
+// =======================================================
+// FUNGSI BARU: PEMASA 15 SAAT & AUTO-PICK
+// =======================================================
+let pickTimerInterval = null;
+
+function mulakanPemasaPick(data, mySlotKey, giliranSekarang) {
+    let timeLeft = 15;
+    const timerSpan = document.getElementById('pick-timer');
+    
+    if (pickTimerInterval) clearInterval(pickTimerInterval);
+
+    pickTimerInterval = setInterval(async () => {
+        timeLeft--;
+        if (timerSpan) timerSpan.innerText = timeLeft;
+
+        // BILA MASA TAMAT (0 SAAT)
+        if (timeLeft <= 0) {
+            clearInterval(pickTimerInterval);
+            
+            // 🤖 AUTO-PICK: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN
+            if (mySlotKey === giliranSekarang) {
+                
+                const bans = data.bannedCategories || [];
+                const selections = data.selections || {};
+                const takenCategories = Object.values(selections);
+                
+                // Cari kategori yang BELUM di-ban DAN BELUM dipilih
+                const availableCategories = data.draftPool.filter(
+                    cat => !bans.includes(cat) && !takenCategories.includes(cat)
+                );
+                
+                if (availableCategories.length > 0) {
+                    // Pilih rawak
+                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+                    
+                    Swal.fire({
+                        title: 'Masa Tamat!',
+                        text: `Sistem memilih secara rawak: ${randomCategory.toUpperCase()}`,
+                        icon: 'info',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Hantar pilihan rawak ke Firebase
+                    pilihKategoriDraft(randomCategory, mySlotKey);
                 }
             }
         }
@@ -2530,10 +2633,13 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
+
+    // Semak adakah INI GILIRAN SAYA?
     let isMyTurn = (mySlotKey === giliranSekarang);
 
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
+        
         const btn = document.createElement('button');
         btn.id = `btn-draft-${catKey}`;
         btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
@@ -2542,79 +2648,67 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
         let isTaken = false;
         let whoTookIt = null;
 
+        // Semak jika kategori ini sudah diambil oleh sesiapa
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
-                    isTaken = true; whoTookIt = slot; break;
+                    isTaken = true;
+                    whoTookIt = slot;
+                    break;
                 }
             }
         }
 
         if (isTaken) {
+            // KATEGORI SUDAH DIAMBIL
             statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
             const colorClass = (whoTookIt === mySlotKey) ? "text-yellow-500" : "text-slate-500";
             btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
-            btn.innerHTML = `<div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
-                             <div class="text-sm ${colorClass} font-bold">${statusText}</div>`;
+            btn.innerHTML = `
+                <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
+                <div class="text-sm ${colorClass} font-bold">${statusText}</div>
+            `;
         } else {
+            // KATEGORI MASIH KOSONG
             if (isMyTurn) {
                 btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer";
-                btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
-                                 <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>`;
+                btn.innerHTML = `
+                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
+                `;
                 btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
             } else {
                 btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
-                btn.innerHTML = `<div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                                 <div class="text-sm text-slate-500 italic">Menunggu...</div>`;
+                btn.innerHTML = `
+                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-slate-500 italic">Menunggu...</div>
+                `;
                 btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
             }
         }
+
         container.appendChild(btn);
     });
     
     kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
 }
 
+// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI (Dimudahkan)
 async function pilihKategoriDraft(catKey, mySlotKey) {
     if (!mySlotKey || !currentLobbyId) return;
+
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     try {
-        await lobbyRef.update({ [`selections/${mySlotKey}`]: catKey });
-        if (pickTimerInterval) clearInterval(pickTimerInterval);
+        await lobbyRef.update({
+            [`selections/${mySlotKey}`]: catKey 
+        });
+        
+        // Hentikan timer kita bila dah berjaya pilih
+        if (typeof pickTimerInterval !== 'undefined') clearInterval(pickTimerInterval);
+        
     } catch (err) {
         console.error("Gagal memilih kategori:", err);
     }
-}
-
-function mulakanPemasaPick(data, mySlotKey, giliranSekarang) {
-    let timeLeft = 15;
-    const timerSpan = document.getElementById('pick-timer');
-    if (pickTimerInterval) clearInterval(pickTimerInterval);
-
-    pickTimerInterval = setInterval(async () => {
-        timeLeft--;
-        if (timerSpan) timerSpan.innerText = timeLeft;
-
-        if (timeLeft <= 0) {
-            clearInterval(pickTimerInterval);
-            if (mySlotKey === giliranSekarang) {
-                const bans = data.bannedCategories || [];
-                const selections = data.selections || {};
-                const takenCategories = Object.values(selections);
-                const availableCategories = data.draftPool.filter(cat => !bans.includes(cat) && !takenCategories.includes(cat));
-                
-                if (availableCategories.length > 0) {
-                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
-                    Swal.fire({
-                        title: 'Masa Tamat!',
-                        text: `Sistem memilih secara rawak: ${randomCategory.toUpperCase()}`,
-                        icon: 'info', timer: 2000, showConfirmButton: false
-                    });
-                    pilihKategoriDraft(randomCategory, mySlotKey);
-                }
-            }
-        }
-    }, 1000);
 }
 
 // ---------------------------------------------------------
@@ -2637,6 +2731,7 @@ function kemaskiniPilihanDraftUI(selections, mySlotKey) {
     for (let slotKey in selections) {
         const catChosen = selections[slotKey];
         const displayEl = document.getElementById(`draft-pick-${slotKey}`);
+
         if (displayEl) {
             displayEl.innerText = catChosen.toUpperCase();
             displayEl.className = slotKey.startsWith('A') 
@@ -2646,6 +2741,7 @@ function kemaskiniPilihanDraftUI(selections, mySlotKey) {
     }
 }
 
+// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT
 async function join3v3Team(team, slotNum) {
     if (!currentLobbyId) return;
     const slotKey = `${team}${slotNum}`;
@@ -2655,25 +2751,37 @@ async function join3v3Team(team, slotNum) {
         lobbyRef.transaction((data) => {
             if (data) {
                 if (!data.slots) data.slots = {};
-                if (data.slots[slotKey]) return; // Batal jika diambil
+                
+                // Semak kalau slot dah kena rembat
+                if (data.slots[slotKey]) {
+                    // Batalkan transaksi
+                    return;
+                }
 
+                // Buang nama saya kalau saya dah ada kat slot lain (lompat team)
                 for (let key in data.slots) {
                     if (data.slots[key] === studentInfo.name) {
                         delete data.slots[key];
                     }
                 }
+
+                // Masukkan nama ke slot baru
                 data.slots[slotKey] = studentInfo.name;
             }
             return data;
         }, (error, committed, snapshot) => {
-            if (error) Swal.fire('Gagal', 'Sistem sibuk, cuba lagi.', 'error');
-            else if (!committed) Swal.fire('Gagal', 'Slot ini sudah diambil oleh orang lain!', 'error');
+            if (error) {
+                Swal.fire('Gagal', 'Sistem sibuk, cuba lagi.', 'error');
+            } else if (!committed) {
+                Swal.fire('Gagal', 'Slot ini sudah diambil oleh orang lain!', 'error');
+            }
         });
     } catch (err) {
         console.error(err);
     }
 }
 
+// 🟢 GUNA RTDB UNTUK TINGGALKAN SLOT (Bila Keluar)
 function leaveAll3v3Slots() {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
@@ -2694,7 +2802,7 @@ function leaveAll3v3Slots() {
         }
     });
 }
-
+	
 // ==========================================
 // LANGKAH 4: ARENA BATTLE & PENGURUSAN MARKAH (VERSI RTDB)
 // ==========================================
