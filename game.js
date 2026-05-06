@@ -3301,3 +3301,5 @@ function paparSkrinKeputusan3v3(status, totalXP, totalCoins, pencapaianList, sco
     `;
   }
 }
+
+console.log("GAME.JS BERJAYA DIBACA SAMPAI HABIS!");
