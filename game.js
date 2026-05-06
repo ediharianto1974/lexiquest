@@ -1946,11 +1946,11 @@ async function check3v3Access() {
         const playerDoc = await db.collection("players").doc(docId).get();
         if (playerDoc.exists) {
             const data = playerDoc.data();
-            if (data.lastArena3v3Date === today && (data.arena3v3CountToday || 0) >= 20) {
+            if (data.lastArena3v3Date === today && (data.arena3v3CountToday || 0) >= 2) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Daily Limit Reached 🛑',
-                    text: 'You have played the maximum limit of 20 Arena matches today. Your warriors are tired. Please come back tomorrow!'
+                    text: 'You have played the maximum limit of 2 Arena matches today. Your warriors are tired. Please come back tomorrow!'
                 });
                 return; // Halang masuk
             }
@@ -2157,7 +2157,7 @@ function listenTo3v3Lobby(roomId) {
             return;
         }
 
-        update3v3UI(slots, data);
+        update3v3UI(slots);
 
         if (data.status === "waiting") {
             const jumlahPemain = Object.keys(slots).length;
@@ -2174,7 +2174,7 @@ function listenTo3v3Lobby(roomId) {
 }
 
 // 2. KEMASKINI UI LOBI & TAMBAH BUTANG KICK UNTUK HOST (Kekal Sama)
-function update3v3UI(slots, data) {
+function update3v3UI(slots) {
     let count = 0;
     const teams = ['A', 'B'];
     
@@ -2289,8 +2289,11 @@ function mulaKiraanKeDraft(lobbyRef, isHost) {
 }
 
 // ==========================================
-// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI AUTOMATIK SISTEM
+// LANGKAH 3: FASA DRAFT (BAN & PICK ALA MOBILE LEGENDS) - VERSI BERGILIR (TURN-BASED)
 // ==========================================
+
+// Variabel global untuk pemasa Ban supaya kita boleh reset/hentikan ia
+let banTimerInterval = null;
 
 function masukFasaDraft(data) {
     const lobbyScreen = document.getElementById('arena-3v3-lobby');
@@ -2315,17 +2318,39 @@ function masukFasaDraft(data) {
     const titleEl = document.getElementById('draft-title'); 
     
     // --------------------------------------------------------
-    // FASA BANNING
+    // FASA BANNING (BERGILIR)
     // --------------------------------------------------------
     if (data.status === "banning") {
-        if (titleEl) titleEl.innerText = "FASA BAN: BUANG 3 KATEGORI!";
-        renderBanPhase(data, container, myTeam);
         
-        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, sistem terus tukar ke fasa picking
+        // 1. Tentukan urutan giliran Ban (A1 -> B1 -> A2 -> B2 -> A3 -> B3)
+        const urutanBan = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
         const totalBans = data.bannedCategories ? data.bannedCategories.length : 0;
+        
+        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, terus tukar fasa
         if (totalBans >= 6) {
+            clearInterval(banTimerInterval);
             rtdb.ref("arenas/" + currentLobbyId).update({ status: "drafting" });
+            return; // Berhenti di sini, biarkan listener panggil fasa drafting
         }
+
+        // 2. Tentukan siapa yang memegang giliran sekarang
+        const giliranSekarang = urutanBan[totalBans]; 
+        const namaPemainGiliran = data.slots[giliranSekarang] || "Pemain Terputus";
+
+        // 3. Paparkan tajuk dan status giliran
+        if (titleEl) {
+            if (mySlotKey === giliranSekarang) {
+                titleEl.innerHTML = `<span class="text-red-500 animate-pulse">GILIRAN ANDA! BUANG 1 KATEGORI (<span id="ban-timer">15</span>s)</span>`;
+            } else {
+                titleEl.innerHTML = `MENUNGGU ${giliranSekarang} (${namaPemainGiliran}) MEMBUANG KATEGORI... (<span id="ban-timer">15</span>s)`;
+            }
+        }
+
+        // 4. Lukis butang (Hanya buka butang jika mySlotKey === giliranSekarang)
+        renderBanPhase(data, container, mySlotKey, giliranSekarang);
+        
+        // 5. Mulakan pemasa Auto-Ban 15 saat
+        mulakanPemasaBan(data, mySlotKey, giliranSekarang);
         
     } 
     // --------------------------------------------------------
@@ -2349,18 +2374,16 @@ function masukFasaDraft(data) {
 }
 
 // ---------------------------------------------------------
-// FASA 1: BANNING (BUANG KATEGORI)
+// FASA 1: BANNING (BUANG KATEGORI) - SISTEM BERGILIR & AUTO
 // ---------------------------------------------------------
-function renderBanPhase(data, container, myTeam) {
+function renderBanPhase(data, container, mySlotKey, giliranSekarang) {
     if (!container || !data.draftPool) return;
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
-    const banCountA = data.banCount && data.banCount.A ? data.banCount.A : 0;
-    const banCountB = data.banCount && data.banCount.B ? data.banCount.B : 0;
     
-    let myTeamBanCount = myTeam === 'A' ? banCountA : banCountB;
-    let bolehBanLagi = (myTeamBanCount < 3);
+    // Semak adakah INI GILIRAN SAYA?
+    let isMyTurn = (mySlotKey === giliranSekarang);
 
     data.draftPool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
@@ -2375,45 +2398,95 @@ function renderBanPhase(data, container, myTeam) {
             btn.innerHTML = `<div class="text-red-500 line-through font-black text-xl mb-2">${displayName}</div>
                              <div class="text-sm text-red-500 font-bold">Telah Dibuang</div>`;
         } else {
-            btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500";
-            btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
-                             <div class="text-sm text-slate-400 italic">Klik untuk BAN</div>`;
-            
-            if (bolehBanLagi && myTeam) {
-                btn.onclick = () => banKategori(catKey, myTeam);
+            // Jika giliran saya: Butang biru terang dan sedia ditekan.
+            // Jika bukan giliran saya: Butang kelabu, tidak boleh ditekan.
+            if (isMyTurn) {
+                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-red-500 cursor-pointer";
+                btn.innerHTML = `<div class="text-white font-black text-xl mb-2">${displayName}</div>
+                                 <div class="text-sm text-red-400 font-bold animate-pulse">Klik untuk BAN</div>`;
+                btn.onclick = () => banKategori(catKey, giliranSekarang);
             } else {
-                btn.classList.add('opacity-70', 'cursor-not-allowed');
-                btn.onclick = () => Swal.fire('Nanti Dulu!', 'Pasukan anda sudah membuang 3 kategori.', 'warning');
+                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
+                btn.innerHTML = `<div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                                 <div class="text-sm text-slate-500 italic">Menunggu...</div>`;
+                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
             }
         }
         container.appendChild(btn);
     });
 }
 
-// 🟢 GUNA RTDB TRANSACTION UNTUK BAN KATEGORI
-async function banKategori(catKey, myTeam) {
+// 🟢 GUNA RTDB TRANSACTION UNTUK BAN KATEGORI (Dimudahkan)
+async function banKategori(catKey, mySlotKey) {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
     
     try {
-        lobbyRef.transaction((data) => {
+        await lobbyRef.transaction((data) => {
             if (data) {
                 let bans = data.bannedCategories || [];
-                let counts = data.banCount || { A: 0, B: 0 };
-                
-                if (!bans.includes(catKey) && counts[myTeam] < 3) {
+                // Tak perlu semak myTeam < 3 lagi. Asalkan kurang 6 dan belum diban.
+                if (!bans.includes(catKey) && bans.length < 6) {
                     if (!data.bannedCategories) data.bannedCategories = [];
                     data.bannedCategories.push(catKey);
-                    
-                    if (!data.banCount) data.banCount = { A: 0, B: 0 };
-                    data.banCount[myTeam] = (data.banCount[myTeam] || 0) + 1;
                 }
             }
             return data;
         });
+        
+        // Lepas berjaya ban manual, hentikan timer di browser kita 
+        clearInterval(banTimerInterval);
+
     } catch (err) {
         console.error("Gagal membuang kategori:", err);
     }
+}
+
+// =======================================================
+// FUNGSI BARU: PEMASA 15 SAAT & AUTO-BAN
+// =======================================================
+function mulakanPemasaBan(data, mySlotKey, giliranSekarang) {
+    let timeLeft = 15;
+    const timerSpan = document.getElementById('ban-timer');
+    
+    // Hentikan sebarang timer lama sebelum mulakan yang baru
+    if (banTimerInterval) clearInterval(banTimerInterval);
+
+    banTimerInterval = setInterval(async () => {
+        timeLeft--;
+        if (timerSpan) timerSpan.innerText = timeLeft;
+
+        // BILA MASA TAMAT (0 SAAT)
+        if (timeLeft <= 0) {
+            clearInterval(banTimerInterval);
+            
+            // 🤖 AUTO-BAN: HANYA DILAKUKAN OLEH PEMAIN YANG MEMEGANG GILIRAN TERSEBUT
+            if (mySlotKey === giliranSekarang) {
+                
+                const allCategories = data.draftPool || [];
+                const bannedCategories = data.bannedCategories || [];
+                
+                // Cari mana-mana kategori yang BELUM di-ban
+                const availableCategories = allCategories.filter(cat => !bannedCategories.includes(cat));
+                
+                if (availableCategories.length > 0) {
+                    // Pilih rawak
+                    const randomCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+                    
+                    Swal.fire({
+                        title: 'Masa Tamat!',
+                        text: `Sistem membuang secara rawak: ${randomCategory.toUpperCase()}`,
+                        icon: 'info',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Hantar pilihan rawak ke Firebase menggunakan fungsi yang sama
+                    banKategori(randomCategory, mySlotKey);
+                }
+            }
+        }
+    }, 1000);
 }
 
 // ---------------------------------------------------------
@@ -2994,7 +3067,7 @@ async function tamatkanBattle3v3(mySlotKey) {
                 finalCoins = baseCoins + bonusCoins;
             }
 
-			// =======================================================
+	    // =======================================================
             // 🛑 TAMBAH KOD INI DI SINI (SIMPAN KE AKAUN MURID)
             // =======================================================
             if (typeof studentInfo !== 'undefined' && studentInfo.name) {
