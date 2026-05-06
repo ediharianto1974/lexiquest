@@ -2742,8 +2742,8 @@ function kemaskiniPilihanDraftUI(selections, mySlotKey) {
     }
 }
 
-// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT
-async function join3v3Team(team, slotNum) {
+// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT (VERSI GLOBAL KEBAL)
+window.join3v3Team = async function(team, slotNum) {
     if (!currentLobbyId) return;
     const slotKey = `${team}${slotNum}`;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
@@ -2755,8 +2755,7 @@ async function join3v3Team(team, slotNum) {
                 
                 // Semak kalau slot dah kena rembat
                 if (data.slots[slotKey]) {
-                    // Batalkan transaksi
-                    return;
+                    return; // Batalkan transaksi
                 }
 
                 // Buang nama saya kalau saya dah ada kat slot lain (lompat team)
@@ -2780,10 +2779,10 @@ async function join3v3Team(team, slotNum) {
     } catch (err) {
         console.error(err);
     }
-}
+};
 
-// 🟢 GUNA RTDB UNTUK TINGGALKAN SLOT (Bila Keluar)
-function leaveAll3v3Slots() {
+// 🟢 GUNA RTDB UNTUK TINGGALKAN SLOT (VERSI GLOBAL KEBAL)
+window.leaveAll3v3Slots = function() {
     if (!currentLobbyId) return;
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     
@@ -2802,7 +2801,7 @@ function leaveAll3v3Slots() {
             if(changed) lobbyRef.update({ slots: slots });
         }
     });
-}
+};
 	
 // ==========================================
 // LANGKAH 4: ARENA BATTLE & PENGURUSAN MARKAH (VERSI RTDB)
