@@ -2994,6 +2994,25 @@ async function tamatkanBattle3v3(mySlotKey) {
                 finalCoins = baseCoins + bonusCoins;
             }
 
+			// =======================================================
+            // 🛑 TAMBAH KOD INI DI SINI (SIMPAN KE AKAUN MURID)
+            // =======================================================
+            if (typeof studentInfo !== 'undefined' && studentInfo.name) {
+                const docId = `${studentInfo.school}_${studentInfo.class}_${studentInfo.name}`.replace(/\s+/g, '_');
+                const playerRef = db.collection("players").doc(docId);
+                
+                try {
+                    // Kita guna increment supaya markah baru ditambah dengan markah lama
+                    await playerRef.update({
+                        xp: firebase.firestore.FieldValue.increment(finalXP),
+                        coins: firebase.firestore.FieldValue.increment(finalCoins)
+                    });
+                    console.log("Ganjaran berjaya disimpan ke akaun Firestore!");
+                } catch (err) {
+                    console.error("Gagal menyimpan ganjaran ke Firestore:", err);
+                }
+            }
+
             // 4. PAPAR SKRIN KEPUTUSAN (Memanggil fungsi seterusnya)
             if (typeof paparSkrinKeputusan3v3 === 'function') {
                 paparSkrinKeputusan3v3(statusKeputusan, finalXP, finalCoins, senaraiPencapaian, scoreA, scoreB);
