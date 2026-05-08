@@ -2417,77 +2417,96 @@ async function banKategori(catKey, myTeam) {
 }
 
 // ---------------------------------------------------------
-// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL)
+// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL) - BERGILIR
 // ---------------------------------------------------------
-function renderPickPhase(data, container, mySlotKey) {
+function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     if (!container || !data.draftPool) return;
     container.innerHTML = ''; 
     
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
 
+    // Semak adakah INI GILIRAN SAYA?
+    let isMyTurn = (mySlotKey === giliranSekarang);
+
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
         
         const btn = document.createElement('button');
         btn.id = `btn-draft-${catKey}`;
-        btn.className = "group relative bg-slate-800 border-2 border-slate-700 p-6 rounded-2xl transition-all hover:scale-105 hover:border-yellow-500 flex flex-col items-center justify-center min-w-[200px]";
+        btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
         
         let statusText = "Tersedia";
         let isDisabled = false;
         let statusClass = "text-slate-400";
+        let whoTookIt = null;
 
+        // Semak jika kategori ini sudah diambil oleh SESIAPA sahaja
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
-                    const teamInvolved = slot.charAt(0);
-                    const myTeam = mySlotKey ? mySlotKey.charAt(0) : '';
-                    
-                    if (teamInvolved === myTeam) {
-                        statusText = (slot === mySlotKey) ? "ANDA PILIH" : "RAKAN AMBIL";
-                        statusClass = "text-yellow-500 font-bold animate-pulse";
-                        isDisabled = true;
-                    }
+                    isDisabled = true;
+                    whoTookIt = slot;
+                    break;
                 }
             }
         }
 
-        btn.innerHTML = `
-            <div class="text-white font-black text-xl mb-2">${displayName}</div>
-            <div class="text-sm ${statusClass} italic">${statusText}</div>
-        `;
-
         if (isDisabled) {
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            // KATEGORI SUDAH DIAMBIL
+            statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
+            statusClass = (whoTookIt === mySlotKey) ? "text-yellow-500 font-bold" : "text-slate-500 font-bold";
+            btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
+            
+            btn.innerHTML = `
+                <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
+                <div class="text-sm ${statusClass} uppercase">${statusText}</div>
+            `;
         } else {
-            btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey, data);
+            // KATEGORI MASIH KOSONG
+            if (isMyTurn) {
+                // JIKA GILIRAN SAYA: Butang bernyala dan boleh ditekan
+                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer";
+                btn.innerHTML = `
+                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
+                `;
+                btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
+            } else {
+                // JIKA BUKAN GILIRAN SAYA: Butang kelabu dan tidak boleh ditekan
+                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
+                btn.innerHTML = `
+                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-slate-500 italic">Menunggu giliran...</div>
+                `;
+                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
+            }
         }
 
         container.appendChild(btn);
     });
     
-    kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
+    // Panggil fungsi UI (Pastikan fungsi ini wujud dalam fail cikgu)
+    if (typeof kemaskiniPilihanDraftUI === 'function') {
+        kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
+    }
 }
 
-// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI
-async function pilihKategoriDraft(catKey, mySlotKey, lobbyData) {
+// 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI (DIKEMASKINI)
+async function pilihKategoriDraft(catKey, mySlotKey) {
     if (!mySlotKey || !currentLobbyId) return;
-
-    const myTeam = mySlotKey.charAt(0); 
-    const selections = lobbyData.selections || {};
-
-    for (let slot in selections) {
-        if (slot.charAt(0) === myTeam && selections[slot] === catKey) {
-            Swal.fire('Kategori Diambil!', 'Rakan sepasukan anda sudah memilih kategori ini.', 'warning');
-            return;
-        }
-    }
 
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
     try {
         await lobbyRef.update({
-            [`selections/${mySlotKey}`]: catKey // Guna '/' bukan '.'
+            [`selections/${mySlotKey}`]: catKey 
         });
+        
+        // Hentikan pemasa jika cikgu ada buat sistem pemasa (Timer)
+        if (typeof pickTimerInterval !== 'undefined' && pickTimerInterval) {
+            clearInterval(pickTimerInterval);
+        }
+        
     } catch (err) {
         console.error("Gagal memilih kategori:", err);
     }
@@ -2584,6 +2603,104 @@ function leaveAll3v3Slots() {
         }
     });
 }
+
+// 🟢 FUNGSI POPUP UNTUK TUKAR NAMA PASUKAN
+window.tukarNamaPasukan = async function(teamKey) {
+    if (!currentLobbyId) return;
+
+    // Paparkan kotak input (SweetAlert)
+    const { value: newName } = await Swal.fire({
+        title: 'Tukar Nama Pasukan',
+        input: 'text',
+        inputLabel: `Masukkan nama khas untuk Pasukan ${teamKey}`,
+        inputPlaceholder: 'Cth: Garuda Merah',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        inputValidator: (value) => {
+            if (!value) return 'Nama pasukan tidak boleh dibiarkan kosong!';
+            if (value.length > 20) return 'Teks terlalu panjang! Maksimum 20 huruf sahaja.';
+        }
+    });
+
+    // Jika ketua masukkan nama, simpan ke Firebase
+    if (newName) {
+        try {
+            await rtdb.ref("arenas/" + currentLobbyId + "/teamNames").update({
+                [teamKey]: newName.toUpperCase()
+            });
+        } catch (err) {
+            Swal.fire('Ralat', 'Gagal menukar nama pasukan.', 'error');
+            console.error(err);
+        }
+    }
+};
+
+// 🟢 FUNGSI KEMASKINI UI LOBI (UPDATE SLOTS & LETAK BUTANG EDIT)
+window.update3v3UI = function(slots, data) {
+    let count = 0;
+    const teams = ['A', 'B'];
+    let mySlotKey = null;
+    
+    // Cari di kerusi mana pemain (cikgu/murid) ini sedang duduk
+    const myName = (typeof studentInfo !== 'undefined') ? studentInfo.name : null;
+    if (myName && slots) {
+        for (let s in slots) {
+            if (slots[s] === myName) {
+                mySlotKey = s;
+                break;
+            }
+        }
+    }
+
+    // Nama default jika belum ditukar
+    const teamNames = data.teamNames || { A: "TEAM RED (A)", B: "TEAM BLUE (B)" };
+    
+    teams.forEach(t => {
+        // 1. KEMASKINI NAMA PASUKAN DAN LETAK BUTANG EDIT
+        const teamNameEl = document.getElementById(`team-name-${t}`);
+        if (teamNameEl) {
+            let tName = teamNames[t];
+            let headerHtml = `<span>${tName}</span>`;
+            
+            // JIKA SAYA DUDUK DI SLOT 1 (A1 atau B1), KELUARKAN BUTANG EDIT
+            if (mySlotKey === `${t}1`) {
+                headerHtml += ` <button onclick="window.tukarNamaPasukan('${t}')" class="ml-3 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-lg hover:bg-yellow-300 transition shadow-md cursor-pointer" title="Tukar Nama Pasukan"><i class="fas fa-edit"></i> Edit</button>`;
+            }
+            teamNameEl.innerHTML = headerHtml;
+        }
+
+        // 2. KEMASKINI KOTAK SLOT PEMAIN (A1, A2, B3, dll)
+        for (let i = 1; i <= 3; i++) {
+            const slotId = `slot-${t}${i}`;
+            const slotEl = document.getElementById(slotId);
+            const occupant = slots ? slots[`${t}${i}`] : null;
+
+            if (slotEl) {
+                if (occupant) {
+                    count++; // Kira jumlah pemain yang dah masuk
+                    slotEl.innerHTML = `<i class="fas fa-user-circle mr-2"></i> ${occupant}`;
+                    slotEl.className = `p-4 border-2 rounded-2xl text-center text-white font-bold transition shadow-lg ${t==='A' ? 'bg-red-500 border-red-700' : 'bg-blue-500 border-blue-700'}`;
+                } else {
+                    slotEl.innerHTML = `Join Slot ${t}${i}`;
+                    slotEl.className = `p-4 border-2 border-dashed rounded-2xl text-center cursor-pointer transition font-bold hover:scale-105 ${t==='A' ? 'border-red-300 text-gray-400 hover:bg-red-50 hover:border-red-500' : 'border-blue-300 text-gray-400 hover:bg-blue-50 hover:border-blue-500'}`;
+                }
+            }
+        }
+    });
+
+    // 3. KEMASKINI STATUS LOBI (MENUNGGU / PENUH)
+    const statusEl = document.getElementById('lobby-3v3-status');
+    if (statusEl) {
+        if (count >= 6) {
+            statusEl.innerText = "LOBBY FULL! GET READY...";
+            statusEl.className = 'text-green-600 font-black text-xl text-center w-full md:w-auto mt-4';
+        } else {
+            statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
+            statusEl.className = 'text-purple-700 font-black text-xl animate-pulse text-center w-full md:w-auto mt-4';
+        }
+    }
+};
 
 // ==========================================
 // LANGKAH 4: ARENA BATTLE & PENGURUSAN MARKAH (VERSI RTDB)
@@ -2918,7 +3035,7 @@ async function tamatkanBattle3v3(mySlotKey) {
     // TUNGGU 2.5 SAAT: Beri masa kepada Firebase untuk selesaikan penerimaan markah terakhir
     setTimeout(async () => {
         try {
-	    const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
+            const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
             const snapshot = await lobbyRef.once('value');
             if (!snapshot.exists()) return;
 
@@ -2928,8 +3045,8 @@ async function tamatkanBattle3v3(mySlotKey) {
             const playerStats = data.playerStats || {};
 
             // Kemaskini status arena kepada 'finished' jika belum
-	        if (data.status !== "finished") {
-                await lobbyRef.update({ status: "finished" }); // Ini masih betul jika lobbyRef ialah rtdb.ref
+            if (data.status !== "finished") {
+                await lobbyRef.update({ status: "finished" }); 
             }
 
             // 1. TENTUKAN STATUS PASUKAN (Menang / Kalah / Seri)
@@ -2950,7 +3067,6 @@ async function tamatkanBattle3v3(mySlotKey) {
             }
 
             // 2. SEMAK STATUS AFK (Kurang dari 3 jawapan dihantar)
-            // (Nota: Pastikan my3v3SubmitCount telah dideklarasi secara global sebelum ini)
             let isAFK = (typeof my3v3SubmitCount !== 'undefined') ? (my3v3SubmitCount < 3) : false;
             let finalXP = 0;
             let finalCoins = 0;
@@ -2994,7 +3110,7 @@ async function tamatkanBattle3v3(mySlotKey) {
                 finalCoins = baseCoins + bonusCoins;
             }
 
-			// =======================================================
+            // =======================================================
             // 🛑 TAMBAH KOD INI DI SINI (SIMPAN KE AKAUN MURID)
             // =======================================================
             if (typeof studentInfo !== 'undefined' && studentInfo.name) {
@@ -3002,12 +3118,12 @@ async function tamatkanBattle3v3(mySlotKey) {
                 const playerRef = db.collection("players").doc(docId);
                 
                 try {
-                    // Kita guna increment supaya markah baru ditambah dengan markah lama
+                    // DITUKAR: 'xp' menjadi 'totalScore'
                     await playerRef.update({
-                        xp: firebase.firestore.FieldValue.increment(finalXP),
+                        totalScore: firebase.firestore.FieldValue.increment(finalXP),
                         coins: firebase.firestore.FieldValue.increment(finalCoins)
                     });
-                    console.log("Ganjaran berjaya disimpan ke akaun Firestore!");
+                    console.log("Ganjaran berjaya disimpan ke totalScore Firestore!");
                 } catch (err) {
                     console.error("Gagal menyimpan ganjaran ke Firestore:", err);
                 }
