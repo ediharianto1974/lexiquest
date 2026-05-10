@@ -2060,8 +2060,12 @@ async function binaLobiBaru() {
     
     const safeGameData = typeof gameData !== 'undefined' ? gameData : {};
     const allCategories = Object.keys(safeGameData).filter(cat => cat.toLowerCase() !== 'missing'); 
+    
+    // Gaulkan kategori secara rawak
     const shuffled = allCategories.sort(() => 0.5 - Math.random());
-    const selectedCategories = shuffled.slice(0, 3);
+    
+    // 🔥 UBAH DI SINI: Kita ambil TEPAT 9 kategori untuk dimasukkan ke draftPool
+    const poolKategori = shuffled.slice(0, 9);
 
     // 🟢 GUNA RTDB
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
@@ -2071,7 +2075,7 @@ async function binaLobiBaru() {
             roomName: studentInfo.name + "'s Lobby",
             host: studentInfo.name,
             status: "waiting", 
-            draftCategories: selectedCategories,
+            draftPool: poolKategori, // 🔥 TUKAR KE 'draftPool' SUPAYA SEPADAN DENGAN FASA BAN
             slots: {},         
             selections: {},     
             scoreA: 0,
@@ -2459,7 +2463,7 @@ async function banKategori(catKey, myTeam) {
 }
 
 // ---------------------------------------------------------
-// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL) - BERGILIR
+// FASA 2: PICKING (PILIH KATEGORI YANG TINGGAL) - BERGILIR ZIG-ZAG
 // ---------------------------------------------------------
 function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     if (!container || !data.draftPool) return;
@@ -2468,14 +2472,16 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
 
-    // --- SEMAKAN GILIRAN PINTAR ---
-    // Jika giliranSekarang tidak dihantar, kita ambil terus dari data Firebase
     let currentTurn = giliranSekarang || data.giliranSekarang;
     let isMyTurn = (mySlotKey && currentTurn && mySlotKey === currentTurn);
 
-    // Keselamatan: Jika saya sudah pilih, saya tak boleh pilih lagi
+    // Semak jika SAYA sudah membuat pilihan
+    let sayaSudahPilih = false;
+    let pilihanSaya = null;
     if (data.selections && data.selections[mySlotKey]) {
         isMyTurn = false;
+        sayaSudahPilih = true;
+        pilihanSaya = data.selections[mySlotKey];
     }
 
     availablePool.forEach((catKey) => {
@@ -2484,45 +2490,58 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
         btn.id = `btn-draft-${catKey}`;
         btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
         
-        let isDisabled = false;
-        let whoTookIt = null;
-
+        // Cari siapa yang telah memilih kategori ini
+        let siapaPilih = [];
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
-                    isDisabled = true;
-                    whoTookIt = slot;
-                    break;
+                    siapaPilih.push(slot);
                 }
             }
         }
 
-        if (isDisabled) {
-            let statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
-            let statusClass = (whoTookIt === mySlotKey) ? "text-yellow-500 font-bold" : "text-slate-500 font-bold";
-            btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
-            btn.innerHTML = `
-                <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
-                <div class="text-sm ${statusClass} uppercase">${statusText}</div>
-            `;
+        let textSiapaPilih = siapaPilih.length > 0 ? `Dipilih oleh: ${siapaPilih.join(', ')}` : "Belum dipilih";
+
+        if (sayaSudahPilih) {
+            // JIKA SAYA SUDAH MEMILIH, SEMUA BUTANG MATI UNTUK SAYA
+            if (pilihanSaya === catKey) {
+                btn.className += "bg-slate-900 border-yellow-500 opacity-90 cursor-not-allowed shadow-[0_0_10px_rgba(234,179,8,0.2)]";
+                btn.innerHTML = `
+                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-sm text-yellow-500 font-bold uppercase">PILIHAN ANDA</div>
+                    <div class="text-xs text-slate-400 mt-2">${textSiapaPilih}</div>
+                `;
+            } else {
+                btn.className += "bg-slate-900 border-slate-800 opacity-40 cursor-not-allowed";
+                btn.innerHTML = `
+                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                    <div class="text-xs text-slate-500 mt-2">${textSiapaPilih}</div>
+                `;
+            }
         } else {
+            // SAYA BELUM MEMILIH
             if (isMyTurn) {
+                // GILIRAN SAYA
                 btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer shadow-[0_0_15px_rgba(234,179,8,0.3)]";
                 btn.innerHTML = `
                     <div class="text-white font-black text-xl mb-2">${displayName}</div>
                     <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
+                    <div class="text-xs text-slate-300 mt-2">${textSiapaPilih}</div>
                 `;
                 btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
             } else {
+                // BUKAN GILIRAN SAYA (MENUNGGU)
                 btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
                 let infoTurn = currentTurn ? `Giliran ${currentTurn}` : "Menunggu...";
                 btn.innerHTML = `
                     <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
                     <div class="text-sm text-slate-500 italic">${infoTurn}</div>
+                    <div class="text-xs text-slate-500 mt-2">${textSiapaPilih}</div>
                 `;
                 btn.onclick = () => Swal.fire('Sabar!', `Sekarang giliran ${currentTurn}.`, 'info');
             }
         }
+        
         container.appendChild(btn);
     });
 }
