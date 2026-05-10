@@ -3360,7 +3360,7 @@ window.bukaLiveStream = async function(lobbyId) {
             winnerPopupTriggered = false;
         }
         
-        // 3. Update Individual Player Stats (Smart Avatar)
+// 3. Update Individual Player Stats (Smart Avatar)
         const slots = data.slots || {};
         const stats = data.playerStats || {};
         let htmlA = ''; let htmlB = '';
@@ -3374,13 +3374,17 @@ window.bukaLiveStream = async function(lobbyId) {
                     let s = stats[slotKey] || { score: 0, longestStreak: 0, avatar: '' };
                     let avatarHTML = '';
 
+                    // JIKA AVATAR ADALAH IKON (Kekal Bulat)
                     if (s.avatar.includes('icon|')) {
                         let iconClass = s.avatar.replace('icon|', '');
                         avatarHTML = `<div class="w-12 h-12 rounded-full border-2 ${team === 'A' ? 'border-red-500' : 'border-blue-500'} bg-slate-900 flex items-center justify-center text-xl text-white"><i class="${iconClass}"></i></div>`;
-                    } else {
+                    } 
+                    // JIKA AVATAR ADALAH GAMBAR (Buang bulat, paparan penuh bersaiz sederhana)
+                    else {
                         let rawImg = s.avatar.replace('img|', '');
                         let imgPath = rawImg || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
-                        avatarHTML = `<img src="${imgPath}" class="w-12 h-12 rounded-full border-2 ${team === 'A' ? 'border-red-500' : 'border-blue-500'} object-cover bg-slate-900">`;
+                        // 🔥 PERUBAHAN DI SINI: Tukar w-12 h-12 rounded-full kepada h-14 w-auto rounded-md
+                        avatarHTML = `<img src="${imgPath}" class="h-14 w-auto rounded-md border-2 ${team === 'A' ? 'border-red-500' : 'border-blue-500'} object-contain bg-slate-900">`;
                     }
 
                     let playerBlock = `
