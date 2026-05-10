@@ -2821,6 +2821,10 @@ let my3v3CurrentStreak = 0;
 let my3v3LongestStreak = 0;
 let battle3v3_isMemproses = false;
 
+// === TAMBAHAN BOOSTER STATE ===
+let playerStreak = 0;
+let pointMultiplier = 1; // Nilai asal ialah 1. Kalau x2 aktif, ia jadi 2.
+
 function masukBattle(data, mySlotKey) {
     if (typeof playBgMusic === 'function') playBgMusic('arena');
     if (!currentLobbyId) return; // Langkah keselamatan
@@ -2833,7 +2837,7 @@ function masukBattle(data, mySlotKey) {
 
     battle3v3_isActive = true;
 
-    // 🟢 1. Dengar Markah dari RTDB Secara Real-time (GUNA ID DINAMIK)
+// 🟢 1. Dengar Markah dari RTDB Secara Real-time (GUNA ID DINAMIK)
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
     lobbyRef.on('value', (snapshot) => {
         if (!snapshot.exists()) return;
@@ -2842,11 +2846,15 @@ function masukBattle(data, mySlotKey) {
         const elScoreA = document.getElementById('score-team-A');
         const elScoreB = document.getElementById('score-team-B');
         
-        // RTDB akan beri markah terus, kemas kini papan markah
-        if (elScoreA) elScoreA.innerText = bData.scoreA || 0;
-        if (elScoreB) elScoreB.innerText = bData.scoreB || 0;
+        // 🔥 TAMBAH BARIS INI: Ambil markah dari Firebase dan simpan dalam pembolehubah
+        const currentScoreA = bData.scoreA || 0;
+        const currentScoreB = bData.scoreB || 0;
+        
+        // RTDB akan beri markah terus, kemas kini papan markah guna pembolehubah tadi
+        if (elScoreA) elScoreA.innerText = currentScoreA;
+        if (elScoreB) elScoreB.innerText = currentScoreB;
 
-	// 🛑 LOGIK BAHARU: RACE TO 300 POINTS! 🛑
+        // 🛑 LOGIK BAHARU: RACE TO 300 POINTS! 🛑
         if ((currentScoreA >= 300 || currentScoreB >= 300) && battle3v3_isActive) {
             console.log("🏁 Salah satu pasukan mencapai 300 mata! Menamatkan perlawanan...");
             
@@ -2860,6 +2868,9 @@ function masukBattle(data, mySlotKey) {
             tamatkanBattle3v3(mySlotKey);
         }
     });
+
+    // 🔥 TAMBAH DI SINI: Hidupkan radar/pendengar serangan musuh!
+    pantauSeranganMusuh(mySlotKey);
 
     // 2. Mulakan Master Timer (3 Minit)
     mulakanMasterTimer3v3(mySlotKey);
@@ -3027,7 +3038,7 @@ async function hantarJawapan3v3(mySlotKey, jawapanSebenar, isTimeout) {
     // POTONG JAWAPAN SEBENAR MENGGUNAKAN "|"
     const senaraiJawapanBetul = jawapanSebenar.trim().toLowerCase().split("|");
 
-    let perubahanMarkah = 0;
+let perubahanMarkah = 0;
     let feedbackText = "";
     let colorClass = "";
 
@@ -3035,15 +3046,29 @@ async function hantarJawapan3v3(mySlotKey, jawapanSebenar, isTimeout) {
         perubahanMarkah = -2;
         feedbackText = "TIME'S UP! (-2)";
         colorClass = "text-red-600";
-    } else if (senaraiJawapanBetul.includes(jawapanMurid)) { // <-- SEMAK DALAM SENARAI
-        perubahanMarkah = 1;
-        feedbackText = "CORRECT! (+1)";
+        
+        // === TAMBAH DISINI: Reset Streak ===
+        playerStreak = 0; 
+        
+    } else if (senaraiJawapanBetul.includes(jawapanMurid)) {
+        // === KEMASKINI DISINI: Markah x Multiplier ===
+        perubahanMarkah = 1 * pointMultiplier; 
+        feedbackText = pointMultiplier > 1 ? `DOUBLE! (+${perubahanMarkah})` : "CORRECT! (+1)";
         colorClass = "text-green-500";
+        
+        // === TAMBAH DISINI: Tambah Streak ===
+        playerStreak++;
+        
     } else {
         perubahanMarkah = -1;
         feedbackText = "WRONG! (-1)";
         colorClass = "text-red-500";
+        
+        // === TAMBAH DISINI: Reset Streak ===
+        playerStreak = 0;
     }
+
+    updateBoosterUI();
 
     // Tunjuk kesan visual sekejap kepada murid (1 saat)
     if (qBox) {
@@ -3054,6 +3079,38 @@ async function hantarJawapan3v3(mySlotKey, jawapanSebenar, isTimeout) {
             </div>
         `;
     }
+
+function updateBoosterUI() {
+    // Kemaskini nombor streak di skrin
+    const streakEl = document.getElementById('player-streak-count');
+    if (streakEl) streakEl.innerText = playerStreak;
+
+    // Senarai syarat streak
+    const boosters = [
+        { id: 'btn-boost-x2', streak: 5 },
+        { id: 'btn-boost-freeze', streak: 10 },
+        { id: 'btn-boost-smoke', streak: 10 },
+        { id: 'btn-boost-bat', streak: 30 },
+        { id: 'btn-boost-thief', streak: 40 }
+    ];
+
+    boosters.forEach(b => {
+        const btn = document.getElementById(b.id);
+        if (btn) {
+            if (playerStreak >= b.streak) {
+                // Aktifkan butang (Buang kelabu, tambah warna)
+                btn.classList.remove('grayscale', 'opacity-50', 'cursor-not-allowed');
+                btn.classList.add('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
+                btn.disabled = false;
+            } else {
+                // Matikan butang (Jadikan kelabu semula)
+                btn.classList.add('grayscale', 'opacity-50', 'cursor-not-allowed');
+                btn.classList.remove('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
+                btn.disabled = true;
+            }
+        }
+    });
+}
 
     // ==========================================
     // KEMASKINI TRACKER INDIVIDU (DI DALAM SISTEM)
@@ -3529,3 +3586,146 @@ window.showWinnerPopup = function(lobbyId) {
 window.closeWinnerPopup = function() {
     document.getElementById('winner-popup').classList.add('hidden');
 };
+
+// ==========================================
+// FUNGSI SERANGAN & PENGGUNAAN BOOSTER 3V3
+// ==========================================
+function gunaBooster(jenis) {
+    if (!battle3v3_isActive || !currentLobbyId) return;
+
+    // Tentukan siapa musuh kita
+    const pasukanLawan = battle3v3_myTeam === 'A' ? 'B' : 'A';
+    const lobbyRef = rtdb.ref("lobbies/" + currentLobbyId);
+
+    // 1. x2 Potion (Syarat: Streak 5)
+    if (jenis === 'x2' && playerStreak >= 5) {
+        playerStreak = 0; // Reset streak selepas guna
+        pointMultiplier = 2; // Aktifkan kuasa Double
+        
+        Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🧪 x2 Point Aktif (5 saat)!', showConfirmButton: false, timer: 2000 });
+        
+        // Matikan kesan selepas 5 saat
+        setTimeout(() => {
+            pointMultiplier = 1;
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: 'Masa x2 tamat.', showConfirmButton: false, timer: 1500 });
+        }, 5000);
+    }
+
+    // 2. Freeze Jari Musuh Rawak (Syarat: Streak 10)
+    else if (jenis === 'freeze' && playerStreak >= 10) {
+        playerStreak = 0;
+        // Pilih mangsa rawak (1, 2, atau 3)
+        const mangsa = pasukanLawan + Math.floor(Math.random() * 3 + 1); // Contoh hasil: "B1" atau "B2"
+        
+        Swal.fire({ toast: true, position: 'top', icon: 'success', title: `❄️ Anda membekukan ${mangsa}!`, showConfirmButton: false, timer: 2000 });
+        
+        // Hantar debuff ke Firebase
+        lobbyRef.child("players/" + mangsa).update({ debuff: "freeze" });
+        
+        // Hilangkan kesan beku selepas 5 saat
+        setTimeout(() => { lobbyRef.child("players/" + mangsa).update({ debuff: null }); }, 5000);
+    }
+
+    // 3. Smoke Bomb ke Musuh Rawak (Syarat: Streak 10)
+    else if (jenis === 'smoke' && playerStreak >= 10) {
+        playerStreak = 0;
+        const mangsa = pasukanLawan + Math.floor(Math.random() * 3 + 1); 
+        
+        Swal.fire({ toast: true, position: 'top', icon: 'success', title: `💨 Bom Asap dibaling ke ${mangsa}!`, showConfirmButton: false, timer: 2000 });
+        
+        lobbyRef.child("players/" + mangsa).update({ debuff: "smoke" });
+        setTimeout(() => { lobbyRef.child("players/" + mangsa).update({ debuff: null }); }, 5000);
+    }
+
+    // 4. Black Bat Attack (Seluruh Pasukan Lawan) (Syarat: Streak 30)
+    else if (jenis === 'bat' && playerStreak >= 30) {
+        playerStreak = 0;
+        Swal.fire({ toast: true, position: 'top', icon: 'success', title: `🦇 Serangan Kelawar dilepaskan ke Team ${pasukanLawan}!`, showConfirmButton: false, timer: 2000 });
+        
+        // Hantar debuff ke status am pasukan lawan
+        lobbyRef.child("teamStatus/" + pasukanLawan).update({ debuff: "bat" });
+        setTimeout(() => { lobbyRef.child("teamStatus/" + pasukanLawan).update({ debuff: null }); }, 5000);
+    }
+
+    // 5. Point Thief (Curi 10 Markah Pasukan) (Syarat: Streak 40)
+    else if (jenis === 'thief' && playerStreak >= 40) {
+        playerStreak = 0;
+        Swal.fire({ toast: true, position: 'top', icon: 'success', title: `👺 Berjaya mencuri 10 markah Team ${pasukanLawan}!`, showConfirmButton: false, timer: 2000 });
+        
+        // Transaksi RTDB untuk curi markah
+        lobbyRef.transaction((data) => {
+            if (data) {
+                // Pastikan markah ada nilainya (fallback ke 0 jika tiada)
+                let markahKita = data["score" + battle3v3_myTeam] || 0;
+                let markahLawan = data["score" + pasukanLawan] || 0;
+                
+                // Tolak 10 dari lawan, tambah 10 ke kita
+                data["score" + pasukanLawan] = markahLawan - 10;
+                data["score" + battle3v3_myTeam] = markahKita + 10;
+            }
+            return data;
+        });
+    }
+
+    // Selepas menggunakan mana-mana booster, kemas kini UI supaya semua butang dimatikan semula
+    updateBoosterUI();
+}
+
+// ==========================================
+// 🛡️ FUNGSI PANTAU SERANGAN MUSUH (LISTENER)
+// ==========================================
+function pantauSeranganMusuh(mySlotKey) {
+    if (!currentLobbyId || !mySlotKey) return;
+    
+    const myTeam = mySlotKey.charAt(0); // Kenal pasti 'A' atau 'B'
+    
+    // 1. Pantau Serangan Individu (Freeze & Smoke)
+    // Berdasarkan fungsi gunaBooster, ia dihantar ke path "players/A1/debuff"
+    rtdb.ref("arenas/" + currentLobbyId + "/players/" + mySlotKey + "/debuff").on('value', (snap) => {
+        const debuff = snap.val();
+        
+        const inputEl = document.getElementById('jawapan-input');
+        const qBox = document.getElementById('battle-question-box');
+        
+        // Reset kesan visual (padamkan semua efek dulu)
+        if (inputEl) {
+            inputEl.classList.remove('frozen-input-effect');
+            inputEl.disabled = false; // Buka balik input
+        }
+        if (qBox) qBox.classList.remove('smoke-blind-effect');
+        
+        // Kenakan kesan visual mengikut jenis serangan
+        if (debuff === 'freeze') {
+            if (inputEl) {
+                inputEl.classList.add('frozen-input-effect');
+                inputEl.disabled = true; // Halang murid menaip
+                inputEl.placeholder = "🥶 DIBEKUKAN!";
+            }
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '🥶 Anda dibekukan oleh musuh!', showConfirmButton: false, timer: 3000 });
+        } 
+        else if (debuff === 'smoke') {
+            if (qBox) qBox.classList.add('smoke-blind-effect');
+            if (inputEl) inputEl.placeholder = "💨 Skrin berkabus...";
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '💨 Asap tebal mengaburkan soalan!', showConfirmButton: false, timer: 3000 });
+        }
+        else {
+            // Jika tiada debuff (masa serangan dah tamat), kembalikan placeholder asal
+            if (inputEl && !inputEl.disabled) inputEl.placeholder = "Type your answer here...";
+        }
+    });
+
+    // 2. Pantau Serangan Berpasukan (Black Bat)
+    // Serangan ini disasarkan kepada seluruh pasukan
+    rtdb.ref("arenas/" + currentLobbyId + "/teamDebuff/" + myTeam).on('value', (snap) => {
+        const batData = snap.val();
+        const batOverlay = document.getElementById('black-bat-overlay');
+        
+        if (batData && batOverlay) {
+            // Munculkan overlay kelawar hitam
+            batOverlay.classList.remove('hidden');
+        } else if (batOverlay) {
+            // Sembunyikan semula apabila masa tamat
+            batOverlay.classList.add('hidden');
+        }
+    });
+}
