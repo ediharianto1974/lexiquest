@@ -2357,10 +2357,14 @@ function masukFasaDraft(data) {
         if (titleEl) titleEl.innerText = "FASA BAN: BUANG 3 KATEGORI!";
         renderBanPhase(data, container, myTeam);
         
-        // 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, sistem terus tukar ke fasa picking
+// 🤖 KUASA SISTEM: Jika 6 ban sudah dibuat, sistem terus tukar ke fasa picking
         const totalBans = data.bannedCategories ? data.bannedCategories.length : 0;
-        if (totalBans >= 6) {
-            rtdb.ref("arenas/" + currentLobbyId).update({ status: "drafting" });
+        
+        if (totalBans >= 6 && data.status === "banning") { 
+            rtdb.ref("arenas/" + currentLobbyId).update({ 
+                status: "drafting",
+                giliranSekarang: "A1" // 🔥 KITA TETAPKAN A1 MULA DAHULU
+            });
         }
         
     } 
@@ -2533,9 +2537,17 @@ async function pilihKategoriDraft(catKey, mySlotKey) {
     if (!mySlotKey || !currentLobbyId) return;
 
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
+    
+    // 🔥 SUSUNAN GILIRAN MEMILIH KATEGORI (ZIG-ZAG)
+    const susunanGiliran = ['A1', 'B1', 'A2', 'B2', 'A3', 'B3'];
+    let indeksSekarang = susunanGiliran.indexOf(mySlotKey);
+    let giliranSeterusnya = susunanGiliran[indeksSekarang + 1] || "SELESAI"; 
+    // Jika B3 dah pilih, ia jadi "SELESAI"
+
     try {
         await lobbyRef.update({
-            [`selections/${mySlotKey}`]: catKey 
+            [`selections/${mySlotKey}`]: catKey,
+            giliranSekarang: giliranSeterusnya // 🔥 HANTAR GILIRAN KEPADA PEMAIN SETERUSNYA
         });
         
         // Hentikan pemasa jika cikgu ada buat sistem pemasa (Timer)
