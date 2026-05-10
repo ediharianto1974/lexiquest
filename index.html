@@ -1230,7 +1230,7 @@ function showScreen(screenId) {
         </div>
         <div class="text-center w-1/3">
             <p class="text-yellow-500 font-bold italic text-sm md:text-lg">TIME LEFT</p>
-            <h2 id="battle-timer" class="text-4xl text-white font-mono font-bold">03:00</h2>
+            <h2 id="battle-timer" class="text-4xl text-white font-mono font-bold">10:00</h2>
         </div>
         <div class="text-center w-1/3">
             <p class="text-blue-500 font-black text-sm md:text-xl">TEAM BLUE</p>
@@ -1238,9 +1238,66 @@ function showScreen(screenId) {
         </div>
     </div>
 
+<div class="w-full max-w-3xl mb-4 bg-slate-900/80 p-3 rounded-2xl border-2 border-slate-700 shadow-lg">
+        <div class="flex justify-between items-center mb-2 px-2">
+            <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Answer Streak 🔥</span>
+            <span id="player-streak-count" class="text-2xl font-black text-orange-500 animate-pulse">0</span>
+        </div>
+        
+        <div class="flex justify-between gap-2">
+            <button id="btn-boost-x2" onclick="gunaBooster('x2')" class="flex-1 grayscale opacity-50 transition-all flex flex-col items-center p-2 bg-slate-800 border-2 border-slate-600 rounded-xl relative cursor-not-allowed hover:scale-105 active:scale-95">
+                <span class="text-2xl md:text-3xl">🧪</span>
+                <span class="text-[10px] md:text-xs font-bold text-white mt-1">x2 Point</span>
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full shadow-md">5</span>
+            </button>
+            <button id="btn-boost-freeze" onclick="gunaBooster('freeze')" class="flex-1 grayscale opacity-50 transition-all flex flex-col items-center p-2 bg-slate-800 border-2 border-slate-600 rounded-xl relative cursor-not-allowed hover:scale-105 active:scale-95">
+                <span class="text-2xl md:text-3xl">❄️</span>
+                <span class="text-[10px] md:text-xs font-bold text-white mt-1">Freeze</span>
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full shadow-md">10</span>
+            </button>
+            <button id="btn-boost-smoke" onclick="gunaBooster('smoke')" class="flex-1 grayscale opacity-50 transition-all flex flex-col items-center p-2 bg-slate-800 border-2 border-slate-600 rounded-xl relative cursor-not-allowed hover:scale-105 active:scale-95">
+                <span class="text-2xl md:text-3xl">💨</span>
+                <span class="text-[10px] md:text-xs font-bold text-white mt-1">Smoke</span>
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full shadow-md">10</span>
+            </button>
+            <button id="btn-boost-bat" onclick="gunaBooster('bat')" class="flex-1 grayscale opacity-50 transition-all flex flex-col items-center p-2 bg-slate-800 border-2 border-slate-600 rounded-xl relative cursor-not-allowed hover:scale-105 active:scale-95">
+                <span class="text-2xl md:text-3xl">🦇</span>
+                <span class="text-[10px] md:text-xs font-bold text-white mt-1">Black Bat</span>
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full shadow-md">30</span>
+            </button>
+            <button id="btn-boost-thief" onclick="gunaBooster('thief')" class="flex-1 grayscale opacity-50 transition-all flex flex-col items-center p-2 bg-slate-800 border-2 border-slate-600 rounded-xl relative cursor-not-allowed hover:scale-105 active:scale-95">
+                <span class="text-2xl md:text-3xl">👺</span>
+                <span class="text-[10px] md:text-xs font-bold text-white mt-1">Point Thief</span>
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] md:text-xs font-black px-2 py-0.5 rounded-full shadow-md">40</span>
+            </button>
+        </div>
+    </div>
+
     <div id="battle-question-box" class="w-full max-w-3xl bg-white p-8 rounded-3xl shadow-[0_0_50px_rgba(255,255,255,0.1)] text-center min-h-[300px] flex flex-col justify-center items-center">
         <p class="text-gray-400 italic text-xl animate-pulse">Sila tunggu, memuat turun soalan...</p>
     </div>
+
+<div id="black-bat-overlay" class="hidden absolute inset-0 z-[80] bg-black flex flex-col items-center justify-center transition-opacity duration-500 pointer-events-none rounded-xl">
+        <div class="text-9xl animate-bounce mb-4">🦇</div>
+        <div class="text-red-500 font-black text-3xl text-center uppercase tracking-widest animate-pulse">
+            WARNING!<br>BLACK BAT ATTACK!
+        </div>
+    </div>
+
+    <style>
+        /* Efek kabur soalan */
+        .smoke-blind-effect {
+            filter: blur(8px) grayscale(50%);
+            transition: filter 0.5s ease-in-out;
+            pointer-events: none;
+        }
+        /* Efek Input Beku */
+        .frozen-input-effect {
+            background-color: #e0f2fe !important; /* Biru cair ais */
+            border-color: #38bdf8 !important;
+            color: #0284c7 !important;
+        }
+    </style>
 </section>
 
 <section id="arena-3v3-host" class="hidden fixed inset-0 z-[100] bg-slate-950 overflow-y-auto p-4 font-['Poppins']">
