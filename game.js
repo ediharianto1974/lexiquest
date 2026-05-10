@@ -2368,12 +2368,14 @@ function masukFasaDraft(data) {
         }
         
     } 
-    // --------------------------------------------------------
+// --------------------------------------------------------
     // FASA DRAFTING (PICKING)
     // --------------------------------------------------------
     else if (data.status === "drafting") {
         if (titleEl) titleEl.innerText = "FASA DRAFT: PILIH KATEGORI ANDA!";
-        renderPickPhase(data, container, mySlotKey);
+        
+        // 🔥 INI BAHAGIAN YANG PALING PENTING: Tambah data.giliranSekarang
+        renderPickPhase(data, container, mySlotKey, data.giliranSekarang);
         
         const totalSelected = data.selections ? Object.keys(data.selections).length : 0;
         
@@ -2466,22 +2468,25 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
     const bans = data.bannedCategories || [];
     const availablePool = data.draftPool.filter(cat => !bans.includes(cat));
 
-    // Semak adakah INI GILIRAN SAYA?
-    let isMyTurn = (mySlotKey === giliranSekarang);
+    // --- SEMAKAN GILIRAN PINTAR ---
+    // Jika giliranSekarang tidak dihantar, kita ambil terus dari data Firebase
+    let currentTurn = giliranSekarang || data.giliranSekarang;
+    let isMyTurn = (mySlotKey && currentTurn && mySlotKey === currentTurn);
+
+    // Keselamatan: Jika saya sudah pilih, saya tak boleh pilih lagi
+    if (data.selections && data.selections[mySlotKey]) {
+        isMyTurn = false;
+    }
 
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
-        
         const btn = document.createElement('button');
         btn.id = `btn-draft-${catKey}`;
         btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
         
-        let statusText = "Tersedia";
         let isDisabled = false;
-        let statusClass = "text-slate-400";
         let whoTookIt = null;
 
-        // Semak jika kategori ini sudah diambil oleh SESIAPA sahaja
         if (data.selections) {
             for (let slot in data.selections) {
                 if (data.selections[slot] === catKey) {
@@ -2493,43 +2498,33 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
         }
 
         if (isDisabled) {
-            // KATEGORI SUDAH DIAMBIL
-            statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
-            statusClass = (whoTookIt === mySlotKey) ? "text-yellow-500 font-bold" : "text-slate-500 font-bold";
+            let statusText = (whoTookIt === mySlotKey) ? "ANDA PILIH" : `DIAMBIL OLEH ${whoTookIt}`;
+            let statusClass = (whoTookIt === mySlotKey) ? "text-yellow-500 font-bold" : "text-slate-500 font-bold";
             btn.className += "bg-slate-900 border-slate-700 opacity-60 cursor-not-allowed";
-            
             btn.innerHTML = `
                 <div class="text-white font-black text-xl mb-2 opacity-50">${displayName}</div>
                 <div class="text-sm ${statusClass} uppercase">${statusText}</div>
             `;
         } else {
-            // KATEGORI MASIH KOSONG
             if (isMyTurn) {
-                // JIKA GILIRAN SAYA: Butang bernyala dan boleh ditekan
-                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer";
+                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer shadow-[0_0_15px_rgba(234,179,8,0.3)]";
                 btn.innerHTML = `
                     <div class="text-white font-black text-xl mb-2">${displayName}</div>
                     <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
                 `;
                 btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
             } else {
-                // JIKA BUKAN GILIRAN SAYA: Butang kelabu dan tidak boleh ditekan
                 btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
+                let infoTurn = currentTurn ? `Giliran ${currentTurn}` : "Menunggu...";
                 btn.innerHTML = `
                     <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-slate-500 italic">Menunggu giliran...</div>
+                    <div class="text-sm text-slate-500 italic">${infoTurn}</div>
                 `;
-                btn.onclick = () => Swal.fire('Bukan Giliran Anda!', 'Sila tunggu giliran pemain lain selesai.', 'warning');
+                btn.onclick = () => Swal.fire('Sabar!', `Sekarang giliran ${currentTurn}.`, 'info');
             }
         }
-
         container.appendChild(btn);
     });
-    
-    // Panggil fungsi UI (Pastikan fungsi ini wujud dalam fail cikgu)
-    if (typeof kemaskiniPilihanDraftUI === 'function') {
-        kemaskiniPilihanDraftUI(data.selections || {}, mySlotKey);
-    }
 }
 
 // 🟢 GUNA RTDB UPDATE UNTUK PILIH KATEGORI (DIKEMASKINI)
