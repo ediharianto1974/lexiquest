@@ -1413,9 +1413,9 @@ await challengeRef.set({
 // ==========================================
         // 🎥 CCTV TRACKER: REKOD HANTAR CABARAN
         // ==========================================
-        if (window.Trackers) {
-            Trackers.rekodHantarCabaran();
-        }
+        // if (window.Trackers) {
+        //    Trackers.rekodHantarCabaran();
+        // }
 
         Swal.fire({ title: 'Success!', text: `Waiting for ${opponentName} to accept...`, icon: 'success', showConfirmButton: false });
 
@@ -1732,20 +1732,20 @@ function endPvPMatch() {
     // ==========================================
     // 🎥 CCTV TRACKER: REKOD KEPUTUSAN CABARAN
     // ==========================================
-    if (window.Trackers) {
-        let trackerStatus = 'tie';
-        if (result === "menang") trackerStatus = 'win';
-        if (result === "kalah") trackerStatus = 'lose';
+    //if (window.Trackers) {
+    //    let trackerStatus = 'tie';
+    //    if (result === "menang") trackerStatus = 'win';
+    //    if (result === "kalah") trackerStatus = 'lose';
         
-        let isNarrowWin = false;
+    //    let isNarrowWin = false;
         // Jika menang dan beza markah cuma 1, ia adalah Menang Tipis (Narrow Win)!
-        if (result === "menang" && (myScore - oppScore === 1)) {
-            isNarrowWin = true;
-        }
+    //    if (result === "menang" && (myScore - oppScore === 1)) {
+    //        isNarrowWin = true;
+    //   }
 
-        Trackers.rekodKeputusanCabaran(trackerStatus, isNarrowWin, false, false);
-        Trackers.rekodKoinDapat(coinReward); // Rekod jumlah keseluruhan syiling
-    }
+    //    Trackers.rekodKeputusanCabaran(trackerStatus, isNarrowWin, false, false);
+    //    Trackers.rekodKoinDapat(coinReward); // Rekod jumlah keseluruhan syiling
+    //}
 
     // 🔴 4. SIMPAN TERUS KE FIREBASE DENGAN ID YANG BETUL
     const today = new Date().toISOString().split('T')[0];
@@ -1805,15 +1805,19 @@ function endPvPMatch() {
 }
 
 // ==========================================
-// E. PENGESAN JAWAPAN (TRANSAKSI SIAPA CEPAT) - VERSI RTDB
+// E. PENGESAN JAWAPAN (TRANSAKSI SIAPA CEPAT) - TEKNIK DELEGATION
 // ==========================================
-const pvpAnswerInput = document.getElementById('pvp-answer-input');
-if (pvpAnswerInput) {
-    pvpAnswerInput.addEventListener('input', function(e) {
-        if (!currentPvPChallengeId || currentPvPAnswer === undefined || currentPvPAnswer === null) return;
+document.addEventListener('input', function(e) {
+    // Hanya bertindak jika elemen yang ditaip itu adalah kotak jawapan PvP
+    if (e.target && e.target.id === 'pvp-answer-input') {
+        
+        // Pastikan pembolehubah global PvP wujud dan sedia
+        if (typeof currentPvPChallengeId === 'undefined' || !currentPvPChallengeId || typeof currentPvPAnswer === 'undefined' || currentPvPAnswer === null) return;
+        
+        const inputBox = e.target;
         
         // 1. Ambil tekaan murid (jadikan huruf besar & buang ruang kosong)
-        const userInput = String(this.value).toUpperCase().trim();
+        const userInput = String(inputBox.value).toUpperCase().trim();
         
         // 2. Ambil jawapan sebenar
         const correctA_raw = String(currentPvPAnswer).toUpperCase().trim();
@@ -1824,10 +1828,10 @@ if (pvpAnswerInput) {
         // 4. Semak jika tekaan murid ADA dalam senarai jawapan yang sah
         if (possibleAnswers.includes(userInput)) {
             
-            this.value = ""; 
-            this.disabled = true; // Kunci segera selepas jawapan betul
+            inputBox.value = ""; 
+            inputBox.disabled = true; // Kunci segera selepas jawapan betul
 
-            // 🟢 REALTIME DATABASE (RTDB) TRANSACTION (Mengelakkan isu serentak)
+            // 🟢 REALTIME DATABASE (RTDB) TRANSACTION
             const rtdbChallengeRef = rtdb.ref("challenges/" + currentPvPChallengeId);
             
             rtdbChallengeRef.transaction((data) => {
@@ -1835,7 +1839,7 @@ if (pvpAnswerInput) {
                 if (data) {
                     // Semak jika lawan dah curi mata atau game sedang pause
                     if (data.currentQ !== window.currentPvPQuestionText || data.isTransitioning) {
-                        return; // return kosong = batalkan transaksi (Lawan jawab dulu!)
+                        return; // Batalkan transaksi (Lawan jawab dulu!)
                     }
 
                     // Dapatkan soalan baru
@@ -1850,35 +1854,26 @@ if (pvpAnswerInput) {
                     data.nextA = newQ.a;
                     data.isTransitioning = true; 
                     
-                    // Mesti return data yang telah diubah suai
                     return data; 
                 }
-                return data; // Return jika data null (game mungkin dah dipadam)
+                return data; 
                 
             }, (error, committed, snapshot) => {
                 if (error) {
                     console.log("Transaksi RTDB dibatalkan (Error):", error);
-                    // Enable balik input jika ralat sistem
-                    const pvpInput = document.getElementById('pvp-answer-input'); // Diperbetulkan ID
-                    if (pvpInput) {
-                        pvpInput.disabled = false;
-                        pvpInput.focus();
-                    }
+                    inputBox.disabled = false;
+                    inputBox.focus();
                 } else if (!committed) {
                     console.log("Transaksi dibatalkan: Lawan jawab dulu!");
-                    // Enable balik input supaya murid boleh terus mencuba
-                    const pvpInput = document.getElementById('pvp-answer-input'); // Diperbetulkan ID
-                    if (pvpInput) {
-                        pvpInput.disabled = false;
-                        pvpInput.focus();
-                    }
+                    inputBox.disabled = false;
+                    inputBox.focus();
                 } else {
                     console.log("Berjaya curi mata!");
                 }
             });
         }
-    });
-}
+    }
+});
 
 // ==========================================
 // LANGKAH 1: SENARAI LOBI & BINA LOBI BAHARU (VERSI RTDB)
