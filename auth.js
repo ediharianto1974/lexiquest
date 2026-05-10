@@ -34,9 +34,11 @@ window.onload = async () => {
         
         await fetchPlayerData(); // <-- Sistem tarik data dari Firestore di sini
         
-        // 🔥 TAMBAH 3 BARIS INI: Salin level masuk ke studentInfo 🔥
+        // 🔥 TAMBAH: Salin level dan avatar masuk ke studentInfo 🔥
         if (typeof localPlayerData !== 'undefined' && localPlayerData) {
             studentInfo.level = localPlayerData.level || 0;
+            // KEMASKINI BARU: Masukkan avatar!
+            studentInfo.activeAvatar = localPlayerData.activeAvatar || ''; 
         }
         
         document.getElementById('auth-screen')?.classList.add('hidden');
@@ -131,11 +133,11 @@ async function loginStudent() {
         // Wujudkan data profil asas supaya sistem tidak ralat
         localPlayerData = { 
             name: "SUPER ADMIN",
-            activeTitle: "System Admin", // Gelaran untuk admin
-            level: "-", // Boleh letak simbol atau kosong
+            activeTitle: "System Admin", 
+            level: "-", 
             coins: 0,
             totalScore: 0,
-            activeAvatar: "👤" // Ikon default admin
+            activeAvatar: "👤" 
         }; 
         
         finalizeLogin();
@@ -170,9 +172,13 @@ async function loginStudent() {
                 lastPlayed: Array.isArray(data.lastPlayed) ? data.lastPlayed : []
             }; 
             
-            // ... (kod di atas kekal sama) ...
-            
-            studentInfo = { name: nameInput, class: classInput, school: schoolInput };
+            // KEMASKINI BARU: Masukkan avatar di sini!
+            studentInfo = { 
+                name: nameInput, 
+                class: classInput, 
+                school: schoolInput,
+                activeAvatar: data.activeAvatar || '' 
+            };
             
             Swal.fire({
                 icon: 'success',
@@ -183,7 +189,7 @@ async function loginStudent() {
             });
 
             finalizeLogin();
-  	    if (typeof playBgMusic === 'function') playBgMusic();
+            if (typeof playBgMusic === 'function') playBgMusic();
             
             // ==========================================
             // ---> TAMBAH KOD INI DI SINI <---

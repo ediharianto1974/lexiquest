@@ -104,7 +104,7 @@ function lockedAlert(diff) {
 }
 
 // ------------------------------------------
-// FUNGSI KIRA XP (PANGGIL INI BILA GAME TAMAT)
+// FUNGSI KIRA XP (VERSI KEMASKINI LOCAL DATA)
 // ------------------------------------------
 function giveXP(category, correctCount) {
     let multiplier = 1;
@@ -114,8 +114,23 @@ function giveXP(category, correctCount) {
     let earnedXP = correctCount * multiplier;
     localPlayerData.totalScore = (Number(localPlayerData.totalScore) || 0) + earnedXP;
     
-    // Simpan ke cloud
+    // ==========================================
+    // 🟢 SELITKAN NAMA GAME KE DALAM DATA PEMAIN
+    // ==========================================
+    // 1. Jika memori playedGamesList belum wujud, kita cipta baru
+    if (!localPlayerData.playedGamesList) {
+        localPlayerData.playedGamesList = [];
+    }
+    
+    // 2. Jika nama game ini belum ada dalam memori, kita masukkan
+    if (!localPlayerData.playedGamesList.includes(category)) {
+        localPlayerData.playedGamesList.push(category);
+    }
+    // ==========================================
+
+    // Simpan semua data terkini (termasuk array di atas) ke Firebase
     saveCloudPlayerData();
+    
     checkLevelRewardsOnLogin(); // Cek jika pemain naik level
     return earnedXP;
 }
@@ -1973,17 +1988,17 @@ async function check3v3Access() {
     pantauSenaraiLobi();
 }
 
-// Fungsi untuk baca lobi yang berstatus 'waiting' secara Live (RTDB VERSION)
+// 🟢 LIVE LOBBY LIST MONITORING (ENGLISH & SPECTATOR SUPPORT)
 function pantauSenaraiLobi() {
     const container = document.getElementById('room-list-container');
     
-    // Pastikan tak ada pendengar lama yang berjalan
+    // Clear old listeners
     if (pantauLobiRef && pantauLobiListener) {
         pantauLobiRef.off('value', pantauLobiListener);
     }
 
-    // 🟢 GUNA RTDB
-    pantauLobiRef = rtdb.ref("arenas").orderByChild("status").equalTo("waiting");
+    // MONITOR ALL ARENAS (Remove the 'waiting' filter to allow Spectators)
+    pantauLobiRef = rtdb.ref("arenas");
     pantauLobiListener = pantauLobiRef.on('value', (snapshot) => {
         container.innerHTML = ""; 
         
@@ -1995,19 +2010,40 @@ function pantauSenaraiLobi() {
         snapshot.forEach((childSnapshot) => {
             const data = childSnapshot.val();
             const roomId = childSnapshot.key;
-            const totalPlayers = data.slots ? Object.keys(data.slots).length : 0;
             
+            // Skip lobbies that are already finished
+            if (data.status === "finished") return;
+
+            const totalPlayers = data.slots ? Object.keys(data.slots).length : 0;
             const roomCard = document.createElement('div');
-            roomCard.className = "bg-slate-800 border-2 border-slate-600 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500 transition";
+            roomCard.className = "bg-slate-800 border-2 border-slate-600 rounded-xl p-4 flex flex-col justify-between hover:border-blue-500 transition shadow-lg";
+            
+            // LOGIC: Determine Button Type
+            let buttonHTML = "";
+            let statusLabel = "";
+
+            if (data.status === "waiting" && totalPlayers < 6) {
+                // LOBBY IS JOINABLE
+                statusLabel = `<span class="text-sm text-green-400 font-bold bg-slate-900 px-3 py-1 rounded-full border border-green-800">${totalPlayers}/6 Players</span>`;
+                buttonHTML = `<button onclick="sertaiLobi('${roomId}')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow-md transition">JOIN</button>`;
+            } else {
+                // LOBBY IS FULL OR IN BATTLE
+                statusLabel = `<span class="text-sm text-yellow-500 font-bold bg-slate-900 px-3 py-1 rounded-full border border-yellow-800">MATCH IN PROGRESS</span>`;
+                buttonHTML = `<button onclick="window.bukaLiveStream('${roomId}')" class="bg-slate-900 hover:bg-slate-700 text-yellow-400 font-bold px-4 py-2 rounded-lg border border-yellow-500 shadow-md transition flex items-center gap-2">
+                                <i class="fas fa-tv"></i> WATCH
+                              </button>`;
+            }
             
             roomCard.innerHTML = `
                 <div class="mb-4">
-                    <h4 class="text-xl font-bold text-white mb-1">🎮 ${data.roomName || "3v3 Lobby"}</h4>
+                    <div class="flex justify-between items-start">
+                        <h4 class="text-xl font-bold text-white mb-1">🎮 ${data.roomName || "3v3 Battle"}</h4>
+                    </div>
                     <p class="text-sm text-slate-300">Host: <span class="text-yellow-400 font-semibold">${data.host}</span></p>
                 </div>
                 <div class="flex justify-between items-center mt-auto">
-                    <span class="text-sm text-slate-400 font-bold bg-slate-900 px-3 py-1 rounded-full border border-slate-500">${totalPlayers}/6 Players</span>
-                    <button onclick="sertaiLobi('${roomId}')" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow-md transition">JOIN</button>
+                    ${statusLabel}
+                    ${buttonHTML}
                 </div>
             `;
             container.appendChild(roomCard);
@@ -2223,7 +2259,7 @@ const statusEl = document.getElementById('lobby-3v3-status');
             // ==========================================
 
         } else {
-            statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
+            statusEl.innerText = `WAITING FOR PLAYERS (${count}/6)...`;
             statusEl.classList.remove('text-green-600');
             statusEl.classList.add('text-purple-700', 'animate-pulse');
         }
@@ -2542,7 +2578,7 @@ function kemaskiniPilihanDraftUI(selections, mySlotKey) {
     }
 }
 
-// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT
+// 🟢 GUNA RTDB TRANSACTION UNTUK MASUK SLOT (VERSI MUKTAMAD DENGAN FIX AVATAR)
 async function join3v3Team(team, slotNum) {
     if (!currentLobbyId) return;
     const slotKey = `${team}${slotNum}`;
@@ -2552,22 +2588,45 @@ async function join3v3Team(team, slotNum) {
         lobbyRef.transaction((data) => {
             if (data) {
                 if (!data.slots) data.slots = {};
+                if (!data.playerStats) data.playerStats = {};
                 
                 // Semak kalau slot dah kena rembat
                 if (data.slots[slotKey]) {
-                    // Batalkan transaksi
-                    return;
+                    return; // Batalkan transaksi
                 }
 
                 // Buang nama saya kalau saya dah ada kat slot lain (lompat team)
                 for (let key in data.slots) {
                     if (data.slots[key] === studentInfo.name) {
                         delete data.slots[key];
+                        if (data.playerStats[key]) delete data.playerStats[key];
                     }
                 }
 
                 // Masukkan nama ke slot baru
                 data.slots[slotKey] = studentInfo.name;
+
+                // ==========================================
+                // 🟢 DAFTAR AVATAR & STATISTIK AWAL PEMAIN
+                // ==========================================
+                // 1. Ambil data mentah dari studentInfo
+                let rawAvatar = studentInfo.activeAvatar || '';
+                
+                // 2. "Cuci" data: Buang 'img|' supaya jadi path fail yang betul
+                let cleanAvatar = rawAvatar.replace('img|', '');
+                
+                // 3. Jika masih kosong, guna gambar profil standard dari internet
+                if (!cleanAvatar) {
+                    cleanAvatar = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+                }
+
+                data.playerStats[slotKey] = {
+                    name: studentInfo.name,
+                    avatar: cleanAvatar, // <-- Menghantar path fail yang sudah bersih ke RTDB
+                    score: 0,
+                    submitCount: 0,
+                    longestStreak: 0
+                };
             }
             return data;
         }, (error, committed, snapshot) => {
@@ -2604,30 +2663,48 @@ function leaveAll3v3Slots() {
     });
 }
 
-// 🟢 FUNGSI POPUP UNTUK TUKAR NAMA PASUKAN
+// 🟢 FUNGSI POPUP UNTUK TUKAR NAMA PASUKAN (FIX UNDEFINED + AUTO UPPERCASE)
 window.tukarNamaPasukan = async function(teamKey) {
     if (!currentLobbyId) return;
 
-    // Paparkan kotak input (SweetAlert)
+    // 1. Ambil nama lama dari database
+    const snap = await rtdb.ref("arenas/" + currentLobbyId + "/teamNames/" + teamKey).once('value');
+    const oldName = snap.val() || (teamKey === 'A' ? 'TEAM RED' : 'TEAM BLUE');
+
+    // 2. Paparkan kotak input
     const { value: newName } = await Swal.fire({
         title: 'Tukar Nama Pasukan',
         input: 'text',
-        inputLabel: `Masukkan nama khas untuk Pasukan ${teamKey}`,
-        inputPlaceholder: 'Cth: Garuda Merah',
+        inputValue: oldName,
+        inputLabel: `Masukkan nama baru untuk Pasukan ${teamKey === 'A' ? 'RED' : 'BLUE'}`,
+        inputPlaceholder: 'Cth: GARUDA MERAH',
         showCancelButton: true,
         confirmButtonText: 'Simpan',
         cancelButtonText: 'Batal',
+        // 🔥 PENAMBAHAN: Memaksa teks jadi huruf besar semasa menaip!
+        customClass: {
+            input: 'uppercase font-bold text-center'
+        },
         inputValidator: (value) => {
-            if (!value) return 'Nama pasukan tidak boleh dibiarkan kosong!';
-            if (value.length > 20) return 'Teks terlalu panjang! Maksimum 20 huruf sahaja.';
+            if (!value) return 'Nama pasukan tidak boleh kosong!';
+            if (value.length > 20) return 'Maksimum 20 huruf sahaja.';
         }
     });
 
-    // Jika ketua masukkan nama, simpan ke Firebase
+    // 3. Simpan nama ke database
     if (newName) {
         try {
-            await rtdb.ref("arenas/" + currentLobbyId + "/teamNames").update({
-                [teamKey]: newName.toUpperCase()
+            // Double-check: Pastikan data yang dihantar confirm huruf besar
+            const namaHurufBesar = newName.toUpperCase();
+            
+            await rtdb.ref("arenas/" + currentLobbyId + "/teamNames/" + teamKey).set(namaHurufBesar);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Berjaya!',
+                text: `Pasukan ${teamKey} kini dikenali sebagai ${namaHurufBesar}`,
+                timer: 1500,
+                showConfirmButton: false
             });
         } catch (err) {
             Swal.fire('Ralat', 'Gagal menukar nama pasukan.', 'error');
@@ -2653,14 +2730,17 @@ window.update3v3UI = function(slots, data) {
         }
     }
 
-    // Nama default jika belum ditukar
-    const teamNames = data.teamNames || { A: "TEAM RED (A)", B: "TEAM BLUE (B)" };
+    // 🛑 KUNCI PENYELESAIAN 1: Ambil data nama, jika tiada sediakan objek kosong
+    const teamNames = data.teamNames || {};
     
     teams.forEach(t => {
         // 1. KEMASKINI NAMA PASUKAN DAN LETAK BUTANG EDIT
         const teamNameEl = document.getElementById(`team-name-${t}`);
         if (teamNameEl) {
-            let tName = teamNames[t];
+            // 🛑 KUNCI PENYELESAIAN 2: Jika nama spesifik A/B tiada, panggil nama default!
+            let defaultName = (t === 'A') ? "TEAM RED (A)" : "TEAM BLUE (B)";
+            let tName = teamNames[t] || defaultName; 
+            
             let headerHtml = `<span>${tName}</span>`;
             
             // JIKA SAYA DUDUK DI SLOT 1 (A1 atau B1), KELUARKAN BUTANG EDIT
@@ -2696,7 +2776,7 @@ window.update3v3UI = function(slots, data) {
             statusEl.innerText = "LOBBY FULL! GET READY...";
             statusEl.className = 'text-green-600 font-black text-xl text-center w-full md:w-auto mt-4';
         } else {
-            statusEl.innerText = `MENUNGGU PEMAIN (${count}/6)...`;
+            statusEl.innerText = `WAITING FOR PLAYERS (${count}/6)...`;
             statusEl.className = 'text-purple-700 font-black text-xl animate-pulse text-center w-full md:w-auto mt-4';
         }
     }
@@ -2711,7 +2791,7 @@ let battle3v3_senaraiSoalan = [];
 let battle3v3_indeksSoalan = 0;
 let battle3v3_masaSoalan = 20;
 let battle3v3_intervalSoalan = null;
-let battle3v3_masaMaster = 180; // 3 Minit = 180 Saat
+let battle3v3_masaMaster = 600; // 10 Minit = 600 Saat
 let battle3v3_intervalMaster = null;
 let battle3v3_isActive = false;
 let my3v3IndividualScore = 0;
@@ -2744,6 +2824,20 @@ function masukBattle(data, mySlotKey) {
         // RTDB akan beri markah terus, kemas kini papan markah
         if (elScoreA) elScoreA.innerText = bData.scoreA || 0;
         if (elScoreB) elScoreB.innerText = bData.scoreB || 0;
+
+	// 🛑 LOGIK BAHARU: RACE TO 300 POINTS! 🛑
+        if ((currentScoreA >= 300 || currentScoreB >= 300) && battle3v3_isActive) {
+            console.log("🏁 Salah satu pasukan mencapai 300 mata! Menamatkan perlawanan...");
+            
+            // 1. Hentikan jam utama supaya tak panggil fungsi tamat dua kali
+            clearInterval(battle3v3_intervalMaster);
+            
+            // 2. Tutup pendengar (listener) ini
+            lobbyRef.off('value');
+            
+            // 3. Panggil fungsi tamat perlawanan serta-merta
+            tamatkanBattle3v3(mySlotKey);
+        }
     });
 
     // 2. Mulakan Master Timer (3 Minit)
@@ -2766,7 +2860,7 @@ function masukBattle(data, mySlotKey) {
 }
 
 function mulakanMasterTimer3v3(mySlotKey) { 
-    battle3v3_masaMaster = 180; 
+    battle3v3_masaMaster = 600; 
     const elTimer = document.getElementById('battle-timer');
     
     battle3v3_intervalMaster = setInterval(() => {
@@ -3198,3 +3292,215 @@ function paparSkrinKeputusan3v3(status, totalXP, totalCoins, pencapaianList, sco
         </div>
     `;
   }
+
+// 🟢 LIVE STREAM FUNCTION (VERSI LENGKAP DENGAN AUTO-WINNER POPUP)
+window.bukaLiveStream = async function(lobbyId) {
+    if (!lobbyId) {
+        Swal.fire('Error', 'Lobby ID is missing!', 'error');
+        return;
+    }
+
+    const { value: password } = await Swal.fire({
+        title: 'Admin Access',
+        input: 'password',
+        inputLabel: 'Enter the secret code to access Host View:',
+        inputPlaceholder: 'Password...',
+        showCancelButton: true,
+        confirmButtonText: 'Open Stream',
+        cancelButtonText: 'Cancel'
+    });
+
+    if (password !== "CIKGU123") {
+        if (password) Swal.fire('Access Denied!', 'Please return to your seat! 😡', 'error');
+        return; 
+    }
+    
+    document.getElementById('arena-3v3-host').classList.remove('hidden');
+    
+    // Flag untuk pastikan popup hanya muncul sekali sahaja bila tamat
+    let winnerPopupTriggered = false;
+
+    hostStreamRef = rtdb.ref("arenas/" + lobbyId);
+    hostStreamRef.on('value', (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        
+        // 1. Update Team Names & Scores
+        const teamNames = data.teamNames || { A: "TEAM RED", B: "TEAM BLUE" };
+        document.getElementById('host-team-name-A').innerText = teamNames.A;
+        document.getElementById('host-team-name-B').innerText = teamNames.B;
+        document.getElementById('host-score-A').innerText = data.scoreA || 0;
+        document.getElementById('host-score-B').innerText = data.scoreB || 0;
+        
+        // 2. Update Battle Status & Trigger Winner Popup
+        const statusEl = document.getElementById('host-battle-status');
+        
+        if (data.status === 'playing') {
+            statusEl.innerText = "MATCH IN PROGRESS...";
+            statusEl.className = "text-xs text-yellow-400 mt-2 font-bold italic animate-pulse";
+            winnerPopupTriggered = false; // Reset flag jika game bermula semula
+        } 
+        else if (data.status === 'finished') {
+            statusEl.innerText = "MATCH FINISHED!";
+            statusEl.className = "text-xs text-red-500 mt-2 font-black";
+
+            // 🔥 LOGIK AUTO-POPUP: Jika tamat dan popup belum pernah keluar
+            if (!winnerPopupTriggered) {
+                winnerPopupTriggered = true; 
+                setTimeout(() => {
+                    if (typeof showWinnerPopup === "function") {
+                        showWinnerPopup(lobbyId);
+                    }
+                }, 2500); // Tunggu 2.5 saat biar dramatik sikit
+            }
+        } 
+        else {
+            statusEl.innerText = "WAITING FOR START...";
+            statusEl.className = "text-xs text-slate-400 mt-2 font-bold";
+            winnerPopupTriggered = false;
+        }
+        
+        // 3. Update Individual Player Stats (Smart Avatar)
+        const slots = data.slots || {};
+        const stats = data.playerStats || {};
+        let htmlA = ''; let htmlB = '';
+        
+        for (let i = 1; i <= 3; i++) {
+            ['A', 'B'].forEach(team => {
+                let slotKey = `${team}${i}`;
+                let pName = slots[slotKey];
+                
+                if (pName) {
+                    let s = stats[slotKey] || { score: 0, longestStreak: 0, avatar: '' };
+                    let avatarHTML = '';
+
+                    if (s.avatar.includes('icon|')) {
+                        let iconClass = s.avatar.replace('icon|', '');
+                        avatarHTML = `<div class="w-12 h-12 rounded-full border-2 ${team === 'A' ? 'border-red-500' : 'border-blue-500'} bg-slate-900 flex items-center justify-center text-xl text-white"><i class="${iconClass}"></i></div>`;
+                    } else {
+                        let rawImg = s.avatar.replace('img|', '');
+                        let imgPath = rawImg || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+                        avatarHTML = `<img src="${imgPath}" class="w-12 h-12 rounded-full border-2 ${team === 'A' ? 'border-red-500' : 'border-blue-500'} object-cover bg-slate-900">`;
+                    }
+
+                    let playerBlock = `
+                    <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 flex ${team === 'B' ? 'flex-row-reverse text-right' : ''} justify-between items-center shadow-md">
+                        <div class="flex items-center gap-3 ${team === 'B' ? 'flex-row-reverse' : ''}">
+                            ${avatarHTML}
+                            <div class="text-white font-bold text-left">
+                                <div class="text-sm">${pName}</div>
+                                <span class="text-[10px] text-yellow-400 block"><i class="fas fa-fire"></i> Streak: ${s.longestStreak || 0}</span>
+                            </div>
+                        </div>
+                        <div class="text-3xl font-black ${team === 'A' ? 'text-red-400' : 'text-blue-400'}">${s.score || 0}</div>
+                    </div>`;
+
+                    if (team === 'A') htmlA += playerBlock; else htmlB += playerBlock;
+                }
+            });
+        }
+        document.getElementById('host-players-A').innerHTML = htmlA || '<p class="text-slate-500 italic">Waiting...</p>';
+        document.getElementById('host-players-B').innerHTML = htmlB || '<p class="text-slate-500 italic text-right">Waiting...</p>';
+    });
+};	
+
+// 🟢 CLOSE STREAM FUNCTION (ENGLISH)
+window.tutupLiveStream = function() {
+    document.getElementById('arena-3v3-host').classList.add('hidden');
+    if (hostStreamRef) hostStreamRef.off();
+};
+
+// 🟢 FUNGSI PAMER PEMENANG (WINNER POPUP)
+window.showWinnerPopup = function(lobbyId) {
+    if (!lobbyId) return;
+
+    rtdb.ref("arenas/" + lobbyId).once('value', (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        const stats = data.playerStats || {};
+        const slots = data.slots || {};
+        const teamNames = data.teamNames || { A: "TEAM RED", B: "TEAM BLUE" };
+
+        // 1. TENTUKAN PASUKAN PEMENANG
+        const scoreA = data.scoreA || 0;
+        const scoreB = data.scoreB || 0;
+        const winner = scoreA > scoreB ? 'A' : (scoreB > scoreA ? 'B' : 'DRAW');
+
+        // 2. CARI MVP, TOP SCORER, & STREAK KING
+        let mvp = { name: '---', score: -1, avatar: '', slot: '' };
+        let topScorer = { name: '---', score: -1, avatar: '' };
+        let topStreak = { name: '---', streak: -1, avatar: '' };
+
+        Object.keys(slots).forEach(slotId => {
+            let pName = slots[slotId];
+            let pStats = stats[slotId] || { score: 0, longestStreak: 0, avatar: '' };
+            let team = slotId.startsWith('A') ? 'A' : 'B';
+
+            // Logik MVP (Markah tertinggi dalam team yang MENANG sahaja)
+            if (team === winner && pStats.score > mvp.score) {
+                mvp = { name: pName, score: pStats.score, avatar: pStats.avatar, slot: slotId };
+            }
+
+            // Logik Top Scorer (Keseluruhan)
+            if (pStats.score > topScorer.score) {
+                topScorer = { name: pName, score: pStats.score, avatar: pStats.avatar };
+            }
+
+            // Logik Longest Streak (Keseluruhan)
+            if (pStats.longestStreak > topStreak.streak) {
+                topStreak = { name: pName, streak: pStats.longestStreak, avatar: pStats.avatar };
+            }
+        });
+
+        // 3. FUNGSI PEMBANTU: GENERATE HTML AVATAR (SMART AVATAR)
+        const getAvatarHTML = (avatarStr, sizeClass, borderCol) => {
+            if (!avatarStr) return `<div class="${sizeClass} rounded-full bg-slate-800 flex items-center justify-center text-slate-500 border-2 ${borderCol}">?</div>`;
+            if (avatarStr.includes('icon|')) {
+                let icon = avatarStr.replace('icon|', '');
+                return `<div class="${sizeClass} rounded-full bg-slate-900 flex items-center justify-center text-3xl text-white border-4 ${borderCol}"><i class="${icon}"></i></div>`;
+            } else {
+                let img = avatarStr.replace('img|', '');
+                return `<img src="${img}" class="${sizeClass} rounded-full object-cover border-4 ${borderCol} bg-slate-900">`;
+            }
+        };
+
+        // 4. KEMASKINI PAPARAN UI
+        const popup = document.getElementById('winner-popup');
+        const banner = document.getElementById('winner-banner');
+        
+        // Warna Banner & Tajuk
+        if (winner === 'DRAW') {
+            document.getElementById('winner-team-name').innerText = "IT'S A TIE!";
+            banner.className = "py-6 text-center shadow-xl relative overflow-hidden bg-slate-700";
+        } else {
+            document.getElementById('winner-team-name').innerText = winner === 'A' ? `${teamNames.A} WINS` : `${teamNames.B} WINS`;
+            banner.className = `py-6 text-center shadow-xl relative overflow-hidden ${winner === 'A' ? 'bg-victory-red' : 'bg-victory-blue'}`;
+        }
+
+        // Masukkan Data MVP
+        document.getElementById('mvp-name').innerText = mvp.name;
+        document.getElementById('mvp-score').innerText = mvp.score;
+        document.getElementById('mvp-avatar-container').innerHTML = getAvatarHTML(mvp.avatar, 'w-full h-full', 'border-yellow-400');
+
+        // Masukkan Data Badges
+        document.getElementById('badge-top-scorer-name').innerText = topScorer.name;
+        document.getElementById('badge-top-scorer-avatar').innerHTML = getAvatarHTML(topScorer.avatar, 'w-16 h-16', 'border-yellow-500');
+        
+        document.getElementById('badge-streak-name').innerText = topStreak.name;
+        document.getElementById('badge-streak-avatar').innerHTML = getAvatarHTML(topStreak.avatar, 'w-16 h-16', 'border-orange-500');
+
+        // Ringkasan Skor Bawah
+        document.getElementById('summary-team-A-name').innerText = teamNames.A;
+        document.getElementById('summary-team-A-score').innerText = scoreA;
+        document.getElementById('summary-team-B-name').innerText = teamNames.B;
+        document.getElementById('summary-team-B-score').innerText = scoreB;
+
+        // Tunjukkan Popup!
+        popup.classList.remove('hidden');
+    });
+};
+
+// 🟢 FUNGSI TUTUP POPUP
+window.closeWinnerPopup = function() {
+    document.getElementById('winner-popup').classList.add('hidden');
+};
