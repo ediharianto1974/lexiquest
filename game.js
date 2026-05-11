@@ -3179,6 +3179,87 @@ function updateBoosterUI() {
 }
 
 // ==========================================
+// FUNGSI GUNA BOOSTER (HANTAR ISYARAT KE RTDB)
+// ==========================================
+async function gunaBooster(jenisBooster) {
+    if (!currentLobbyId || !my3v3SlotKey) return;
+
+    const teamSaya = my3v3SlotKey.charAt(0); // 'A' atau 'B'
+    const teamLawan = teamSaya === 'A' ? 'B' : 'A';
+    const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
+
+    // 1. Kenal pasti kos streak dan kesan booster
+    let kosStreak = 0;
+    let namaBooster = "";
+
+    switch (jenisBooster) {
+        case 'x2':
+            kosStreak = 5;
+            namaBooster = "x2 Points";
+            break;
+        case 'freeze':
+            kosStreak = 10;
+            namaBooster = "Freeze";
+            break;
+        case 'smoke':
+            kosStreak = 10;
+            namaBooster = "Smoke Bomb";
+            break;
+        case 'bat':
+            kosStreak = 30;
+            namaBooster = "Black Bat";
+            break;
+        case 'thief':
+            kosStreak = 40;
+            namaBooster = "Point Thief";
+            break;
+    }
+
+    // 2. Semak jika streak cukup (Langkah keselamatan tambahan)
+    if (playerStreak < kosStreak) {
+        Swal.fire('Ops!', 'Streak tidak mencukupi.', 'warning');
+        return;
+    }
+
+    // 3. Tolak streak pengguna
+    playerStreak -= kosStreak;
+    updateBoosterUI(); // Kemaskini skrin segera
+
+    // 4. Logik Khas untuk setiap Booster & Hantar ke RTDB
+    try {
+        if (jenisBooster === 'x2') {
+            // x2 Point: Efek pada DIRI SENDIRI sahaja (tak serang lawan)
+            pointMultiplier = 2;
+            Swal.fire('Booster Aktif!', 'Markah x2 untuk jawapan betul seterusnya!', 'success');
+            
+            // (Pilihan) Kemaskini RTDB kalau nak kawan sepasukan nampak
+        } 
+        else if (jenisBooster === 'thief') {
+            // Point Thief: Curi markah terus di pangkalan data!
+            const fieldMarkahSaya = teamSaya === 'A' ? "scoreA" : "scoreB";
+            const fieldMarkahLawan = teamLawan === 'A' ? "scoreA" : "scoreB";
+            
+            await lobbyRef.update({
+                [fieldMarkahSaya]: firebase.database.ServerValue.increment(2), // Tambah 2 markah kita
+                [fieldMarkahLawan]: firebase.database.ServerValue.increment(-2) // Tolak 2 markah lawan
+            });
+            Swal.fire('👺 Dicuri!', 'Anda berjaya mencuri 2 markah lawan!', 'success');
+        }
+        else {
+            // Freeze, Smoke, Bat: Serang skrin lawan!
+            // Kita letak isyarat serang ini dalam RTDB di bawah "activeEffects"
+            await lobbyRef.update({
+                [`activeEffects/${teamLawan}/${jenisBooster}`]: Date.now() // Letak timestamp supaya lawan tahu ini serangan baru
+            });
+            Swal.fire('Serangan Dilancarkan!', `Pasukan lawan terkena ${namaBooster}!`, 'success');
+        }
+    } catch (err) {
+        console.error("Gagal guna booster:", err);
+        Swal.fire('Ralat', 'Gagal melancarkan booster.', 'error');
+    }
+}
+
+// ==========================================
 // LANGKAH 5A: KIRA KEPUTUSAN, GANJARAN & HAD HARIAN 3V3 (GABUNGAN)
 // ==========================================
 async function tamatkanBattle3v3(mySlotKey) {
