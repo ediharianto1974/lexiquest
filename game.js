@@ -3754,54 +3754,47 @@ async function gunaBooster(jenisBooster) {
     }
 }
 
-// ==========================================
-// RADAR PANTAU SERANGAN (VERSI UPDATE 10 SAAT)
-// ==========================================
 function pantauSeranganMusuh() {
-    // 1. Guna variable global cikgu yang betul
     if (!currentLobbyId || !battle3v3_mySlotKey) return;
-    
     const myTeam = battle3v3_mySlotKey.charAt(0); 
-    
-    // 2. Pantau Serangan Individu (Freeze & Smoke)
-    rtdb.ref("arenas/" + currentLobbyId + "/players/" + battle3v3_mySlotKey + "/debuff").on('value', (snap) => {
+
+    // Alamat lengkap: arenas/room_ID
+    const roomRef = rtdb.ref("arenas/" + currentLobbyId);
+
+    // Pantau Debuff Individu (Freeze & Smoke)
+    roomRef.child("players/" + battle3v3_mySlotKey + "/debuff").on('value', (snap) => {
         const debuff = snap.val();
         const inputEl = document.getElementById('jawapan-input');
         const qBox = document.getElementById('battle-question-box');
         
-        // Reset kesan visual setiap kali data berubah
         if (inputEl) {
             inputEl.classList.remove('frozen-input-effect');
             inputEl.disabled = false;
         }
         if (qBox) qBox.classList.remove('smoke-blind-effect');
-        
+
         if (debuff === 'freeze') {
             if (inputEl) {
                 inputEl.classList.add('frozen-input-effect');
                 inputEl.disabled = true;
-                inputEl.placeholder = "🥶 DIBEKUKAN!";
+                inputEl.placeholder = "❄️ DIBEKUKAN ❄️";
             }
-            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '🥶 Anda dibekukan oleh musuh!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '🥶 Anda dibekukan!', showConfirmButton: false, timer: 3000 });
         } 
         else if (debuff === 'smoke') {
             if (qBox) qBox.classList.add('smoke-blind-effect');
             if (inputEl) inputEl.placeholder = "💨 Skrin berkabus...";
-            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '💨 Asap tebal mengaburkan soalan!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'info', title: '💨 Asap tebal!', showConfirmButton: false, timer: 3000 });
         }
         else {
-            // Kembalikan keadaan asal jika debuff dipadam (null)
-            if (inputEl && !inputEl.disabled) {
-                inputEl.placeholder = "Type your answer here...";
-            }
+            if (inputEl && !inputEl.disabled) inputEl.placeholder = "Type your answer here...";
         }
     });
 
-    // 3. Pantau Serangan Berpasukan (Black Bat)
-    rtdb.ref("arenas/" + currentLobbyId + "/teamDebuff/" + myTeam).on('value', (snap) => {
+    // Pantau Debuff Pasukan (Black Bat)
+    roomRef.child("teamDebuff/" + myTeam).on('value', (snap) => {
         const batData = snap.val();
         const batOverlay = document.getElementById('black-bat-overlay');
-        
         if (batData && batOverlay) {
             batOverlay.classList.remove('hidden');
         } else if (batOverlay) {
