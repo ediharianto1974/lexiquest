@@ -3689,9 +3689,7 @@ async function gunaBooster(jenisBooster) {
         return;
     }
 
-    // Alamat lengkap: arenas/room_123...
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId); 
-    
     const teamSaya = battle3v3_mySlotKey.charAt(0);
     const teamLawan = teamSaya === 'A' ? 'B' : 'A';
 
@@ -3712,7 +3710,6 @@ async function gunaBooster(jenisBooster) {
     }
 
     playerStreak -= kosStreak;
-    // Panggil fungsi kemaskini UI (Fungsinya kena ada di luar blok ini)
     updateBoosterUI(); 
 
     try {
@@ -3722,31 +3719,33 @@ async function gunaBooster(jenisBooster) {
             setTimeout(() => { pointMultiplier = 1; }, 10000); 
         } 
         else if (jenisBooster === 'thief') {
+            // 10 POINTS: Sekarang kita curi 10 markah, bukan 2!
             await lobbyRef.update({
-                [`score${teamSaya}`]: firebase.database.ServerValue.increment(2),
-                [`score${teamLawan}`]: firebase.database.ServerValue.increment(-2)
+                [`score${teamSaya}`]: firebase.database.ServerValue.increment(10),
+                [`score${teamLawan}`]: firebase.database.ServerValue.increment(-10)
             });
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '👺 2 markah dicuri!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '👺 10 markah berjaya dicuri!', showConfirmButton: false, timer: 3000 });
         } 
         else if (jenisBooster === 'freeze' || jenisBooster === 'smoke') {
-            const updates = {};
-            ['1', '2', '3'].forEach(num => {
-                updates[`players/${teamLawan}${num}/debuff`] = jenisBooster;
-            });
-            await lobbyRef.update(updates);
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `Peluru ${namaBooster} Aktif!`, showConfirmButton: false, timer: 3000 });
+            // RANDOM TARGET: Pilih seorang sahaja (1, 2, atau 3) secara rawak
+            const targetNum = Math.floor(Math.random() * 3) + 1;
+            const targetSlot = `${teamLawan}${targetNum}`; // Contoh: "B2"
+            
+            const targetPath = `players/${targetSlot}/debuff`;
 
+            // Hantar serangan ke mangsa yang terpilih sahaja
+            await lobbyRef.child(targetPath).set(jenisBooster);
+            
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `🚀 ${namaBooster} terkena ${targetSlot}!`, showConfirmButton: false, timer: 3000 });
+
+            // Padamkan serangan selepas 10 saat (hanya untuk mangsa itu)
             setTimeout(() => {
-                const clearUpdates = {};
-                ['1', '2', '3'].forEach(num => {
-                    clearUpdates[`players/${teamLawan}${num}/debuff`] = null;
-                });
-                lobbyRef.update(clearUpdates);
+                lobbyRef.child(targetPath).set(null);
             }, 10000); 
         } 
         else if (jenisBooster === 'bat') {
             await lobbyRef.update({ [`teamDebuff/${teamLawan}`]: true });
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat Aktif!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat menyerang pasukan lawan!', showConfirmButton: false, timer: 3000 });
             setTimeout(() => { lobbyRef.update({ [`teamDebuff/${teamLawan}`]: null }); }, 10000); 
         }
     } catch (err) {
