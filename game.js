@@ -3179,7 +3179,7 @@ function updateBoosterUI() {
 }
 
 // ==========================================
-// FUNGSI GUNA BOOSTER (HANTAR ISYARAT KE RTDB)
+// FUNGSI GUNA BOOSTER (HANTAR ISYARAT KE KOD ASAL CIKGU)
 // ==========================================
 async function gunaBooster(jenisBooster) {
     if (!currentLobbyId || !my3v3SlotKey) return;
@@ -3188,77 +3188,82 @@ async function gunaBooster(jenisBooster) {
     const teamLawan = teamSaya === 'A' ? 'B' : 'A';
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
 
-    // 1. Kenal pasti kos streak dan kesan booster
+    // 1. Kenal pasti kos streak dan nama booster
     let kosStreak = 0;
     let namaBooster = "";
 
     switch (jenisBooster) {
-        case 'x2':
-            kosStreak = 5;
-            namaBooster = "x2 Points";
-            break;
-        case 'freeze':
-            kosStreak = 10;
-            namaBooster = "Freeze";
-            break;
-        case 'smoke':
-            kosStreak = 10;
-            namaBooster = "Smoke Bomb";
-            break;
-        case 'bat':
-            kosStreak = 30;
-            namaBooster = "Black Bat";
-            break;
-        case 'thief':
-            kosStreak = 40;
-            namaBooster = "Point Thief";
-            break;
+        case 'x2': kosStreak = 5; namaBooster = "x2 Points"; break;
+        case 'freeze': kosStreak = 10; namaBooster = "Freeze"; break;
+        case 'smoke': kosStreak = 10; namaBooster = "Smoke Bomb"; break;
+        case 'bat': kosStreak = 30; namaBooster = "Black Bat"; break;
+        case 'thief': kosStreak = 40; namaBooster = "Point Thief"; break;
     }
 
-    // 2. Semak jika streak cukup (Langkah keselamatan tambahan)
+    // 2. Semak jika streak mencukupi (Elak kes ralat UI)
     if (playerStreak < kosStreak) {
-        Swal.fire('Ops!', 'Streak tidak mencukupi.', 'warning');
+        Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'Streak tidak mencukupi!', showConfirmButton: false, timer: 2000 });
         return;
     }
 
-    // 3. Tolak streak pengguna
+    // 3. Tolak streak dan kemaskini butang di skrin (UI)
     playerStreak -= kosStreak;
-    updateBoosterUI(); // Kemaskini skrin segera
+    updateBoosterUI(); 
 
-    // 4. Logik Khas untuk setiap Booster & Hantar ke RTDB
+    // 4. Laksanakan Kesan Serangan ke Database
     try {
         if (jenisBooster === 'x2') {
-            // x2 Point: Efek pada DIRI SENDIRI sahaja (tak serang lawan)
-            pointMultiplier = 2;
-            Swal.fire('Booster Aktif!', 'Markah x2 untuk jawapan betul seterusnya!', 'success');
-            
-            // (Pilihan) Kemaskini RTDB kalau nak kawan sepasukan nampak
+            // x2 Point: Efek pada DIRI SENDIRI
+            pointMultiplier = 2; // (Nota: Pastikan pointMultiplier ditukar balik ke 1 dalam hantarJawapan3v3 selepas cikgu jawab)
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🧪 Markah x2 diaktifkan!', showConfirmButton: false, timer: 3000 });
         } 
         else if (jenisBooster === 'thief') {
-            // Point Thief: Curi markah terus di pangkalan data!
+            // Point Thief: Curi markah di RTDB
             const fieldMarkahSaya = teamSaya === 'A' ? "scoreA" : "scoreB";
             const fieldMarkahLawan = teamLawan === 'A' ? "scoreA" : "scoreB";
             
             await lobbyRef.update({
-                [fieldMarkahSaya]: firebase.database.ServerValue.increment(2), // Tambah 2 markah kita
-                [fieldMarkahLawan]: firebase.database.ServerValue.increment(-2) // Tolak 2 markah lawan
+                [fieldMarkahSaya]: firebase.database.ServerValue.increment(2),
+                [fieldMarkahLawan]: firebase.database.ServerValue.increment(-2)
             });
-            Swal.fire('👺 Dicuri!', 'Anda berjaya mencuri 2 markah lawan!', 'success');
-        }
-        else {
-            // Freeze, Smoke, Bat: Serang skrin lawan!
-            // Kita letak isyarat serang ini dalam RTDB di bawah "activeEffects"
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '👺 2 markah musuh berjaya dicuri!', showConfirmButton: false, timer: 3000 });
+        } 
+        else if (jenisBooster === 'freeze' || jenisBooster === 'smoke') {
+            // Serangan Individu: Hantar ke ketiga-tiga pemain pasukan musuh serentak!
+            const updates = {};
+            ['1', '2', '3'].forEach(num => {
+                updates[`players/${teamLawan}${num}/debuff`] = jenisBooster;
+            });
+            await lobbyRef.update(updates);
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `Peluru ${namaBooster} dilancarkan!`, showConfirmButton: false, timer: 3000 });
+
+            // Padamkan data dari Firebase selepas 5 saat supaya skrin musuh 'clear' semula
+            setTimeout(() => {
+                const clearUpdates = {};
+                ['1', '2', '3'].forEach(num => {
+                    clearUpdates[`players/${teamLawan}${num}/debuff`] = null;
+                });
+                lobbyRef.update(clearUpdates);
+            }, 5000);
+        } 
+        else if (jenisBooster === 'bat') {
+            // Serangan Berpasukan: Hantar ke TeamDebuff musuh
             await lobbyRef.update({
-                [`activeEffects/${teamLawan}/${jenisBooster}`]: Date.now() // Letak timestamp supaya lawan tahu ini serangan baru
+                [`teamDebuff/${teamLawan}`]: true
             });
-            Swal.fire('Serangan Dilancarkan!', `Pasukan lawan terkena ${namaBooster}!`, 'success');
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat dilepaskan ke kem musuh!', showConfirmButton: false, timer: 3000 });
+
+            // Padamkan overlay kelawar selepas 7 saat
+            setTimeout(() => {
+                lobbyRef.update({
+                    [`teamDebuff/${teamLawan}`]: null
+                });
+            }, 7000);
         }
     } catch (err) {
-        console.error("Gagal guna booster:", err);
-        Swal.fire('Ralat', 'Gagal melancarkan booster.', 'error');
+        console.error("Gagal melancarkan booster:", err);
     }
 }
-
 // ==========================================
 // LANGKAH 5A: KIRA KEPUTUSAN, GANJARAN & HAD HARIAN 3V3 (GABUNGAN)
 // ==========================================
