@@ -2883,7 +2883,7 @@ function masukBattle(data, mySlotKey) {
     });
 
     // 🔥 TAMBAH DI SINI: Hidupkan radar/pendengar serangan musuh!
-    pantauSeranganMusuh(mySlotKey);
+    pantauSeranganMusuh();
 
     // 2. Mulakan Master Timer (3 Minit)
     mulakanMasterTimer3v3(mySlotKey);
