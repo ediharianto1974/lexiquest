@@ -2469,74 +2469,79 @@ function renderPickPhase(data, container, mySlotKey, giliranSekarang) {
 
     let currentTurn = giliranSekarang || data.giliranSekarang;
     let isMyTurn = (mySlotKey && currentTurn && mySlotKey === currentTurn);
+    
+    // 1. Kenalpasti Pasukan Saya (A atau B)
+    const myTeam = mySlotKey ? mySlotKey.charAt(0) : null;
 
-    // Semak jika SAYA sudah membuat pilihan
-    let sayaSudahPilih = false;
-    let pilihanSaya = null;
-    if (data.selections && data.selections[mySlotKey]) {
-        isMyTurn = false;
-        sayaSudahPilih = true;
-        pilihanSaya = data.selections[mySlotKey];
+    // 2. Cari semua kategori yang TELAH DIAMBIL oleh pasukan saya
+    let kategoriSudahDiambilPasukan = [];
+    if (data.selections) {
+        for (let slot in data.selections) {
+            // Jika slot bermula dengan huruf yang sama (pasukan sama)
+            if (slot.charAt(0) === myTeam) {
+                kategoriSudahDiambilPasukan.push(data.selections[slot]);
+            }
+        }
     }
+
+    let sayaSudahPilih = data.selections && data.selections[mySlotKey];
 
     availablePool.forEach((catKey) => {
         const displayName = catKey.replace(/([A-Z])/g, ' $1').toUpperCase();
         const btn = document.createElement('button');
-        btn.id = `btn-draft-${catKey}`;
-        btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] ";
         
-        // Cari siapa yang telah memilih kategori ini
+        // Semak jika kategori spesifik ini sudah diambil oleh rakan sepasukan
+        const sudahDiambilRakan = kategoriSudahDiambilPasukan.includes(catKey);
+        
+        // Cari siapa yang ambil (untuk paparan teks)
         let siapaPilih = [];
         if (data.selections) {
             for (let slot in data.selections) {
-                if (data.selections[slot] === catKey) {
-                    siapaPilih.push(slot);
-                }
+                if (data.selections[slot] === catKey) siapaPilih.push(slot);
             }
         }
-
         let textSiapaPilih = siapaPilih.length > 0 ? `Dipilih oleh: ${siapaPilih.join(', ')}` : "Belum dipilih";
 
+        // LOGIK DISABLE / ENABLE
         if (sayaSudahPilih) {
-            // JIKA SAYA SUDAH MEMILIH, SEMUA BUTANG MATI UNTUK SAYA
-            if (pilihanSaya === catKey) {
-                btn.className += "bg-slate-900 border-yellow-500 opacity-90 cursor-not-allowed shadow-[0_0_10px_rgba(234,179,8,0.2)]";
-                btn.innerHTML = `
-                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-yellow-500 font-bold uppercase">PILIHAN ANDA</div>
-                    <div class="text-xs text-slate-400 mt-2">${textSiapaPilih}</div>
-                `;
+            // Jika saya sudah pilih, semua butang mati
+            btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] bg-slate-900 opacity-40 cursor-not-allowed";
+            if (data.selections[mySlotKey] === catKey) {
+                btn.classList.replace("opacity-40", "opacity-90");
+                btn.classList.add("border-yellow-500");
+                btn.innerHTML = `<div>${displayName}</div><div class="text-yellow-500">PILIHAN ANDA</div>`;
             } else {
-                btn.className += "bg-slate-900 border-slate-800 opacity-40 cursor-not-allowed";
-                btn.innerHTML = `
-                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-xs text-slate-500 mt-2">${textSiapaPilih}</div>
-                `;
+                btn.innerHTML = `<div>${displayName}</div><div class="text-xs text-slate-500">${textSiapaPilih}</div>`;
             }
-        } else {
-            // SAYA BELUM MEMILIH
-            if (isMyTurn) {
-                // GILIRAN SAYA
-                btn.className += "bg-slate-800 border-slate-700 hover:scale-105 hover:border-yellow-500 cursor-pointer shadow-[0_0_15px_rgba(234,179,8,0.3)]";
-                btn.innerHTML = `
-                    <div class="text-white font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
-                    <div class="text-xs text-slate-300 mt-2">${textSiapaPilih}</div>
-                `;
-                btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
-            } else {
-                // BUKAN GILIRAN SAYA (MENUNGGU)
-                btn.className += "bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
-                let infoTurn = currentTurn ? `Giliran ${currentTurn}` : "Menunggu...";
-                btn.innerHTML = `
-                    <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
-                    <div class="text-sm text-slate-500 italic">${infoTurn}</div>
-                    <div class="text-xs text-slate-500 mt-2">${textSiapaPilih}</div>
-                `;
-                btn.onclick = () => Swal.fire('Sabar!', `Sekarang giliran ${currentTurn}.`, 'info');
-            }
+        } 
+        else if (sudahDiambilRakan) {
+            // 🔥 LOGIK BARU: Jika rakan sepasukan sudah ambil, SEKAT butang ini walaupun giliran saya
+            btn.className = "group relative border-2 p-6 rounded-2xl flex flex-col items-center justify-center min-w-[200px] bg-red-900/20 border-red-900/50 opacity-60 cursor-not-allowed";
+            btn.innerHTML = `
+                <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                <div class="text-xs text-red-400 font-bold uppercase">TELAH DIAMBIL PASUKAN</div>
+                <div class="text-xs text-slate-500 mt-2">${textSiapaPilih}</div>
+            `;
+            btn.onclick = () => Swal.fire('Maaf!', 'Kategori ini telah diambil oleh rakan sepasukan anda.', 'error');
         }
-        
+        else if (isMyTurn) {
+            // Giliran saya DAN kategori belum diambil
+            btn.className = "group relative border-2 p-6 rounded-2xl transition-all flex flex-col items-center justify-center min-w-[200px] bg-slate-800 border-slate-700 hover:border-yellow-500 cursor-pointer shadow-lg";
+            btn.innerHTML = `
+                <div class="text-white font-black text-xl mb-2">${displayName}</div>
+                <div class="text-sm text-yellow-400 font-bold animate-pulse">Klik untuk PILIH</div>
+            `;
+            btn.onclick = () => pilihKategoriDraft(catKey, mySlotKey);
+        } 
+        else {
+            // Bukan giliran saya
+            btn.className = "group relative border-2 p-6 rounded-2xl flex flex-col items-center justify-center min-w-[200px] bg-slate-900 border-slate-800 opacity-50 cursor-not-allowed";
+            btn.innerHTML = `
+                <div class="text-slate-400 font-black text-xl mb-2">${displayName}</div>
+                <div class="text-sm text-slate-500 italic">Giliran ${currentTurn}</div>
+            `;
+        }
+
         container.appendChild(btn);
     });
 }
@@ -2825,6 +2830,10 @@ let battle3v3_isMemproses = false;
 let playerStreak = 0;
 let pointMultiplier = 1; // Nilai asal ialah 1. Kalau x2 aktif, ia jadi 2.
 
+// 🔥 TAMBAH BARIS INI: Untuk simpan maklumat pasukan dan slot pemain
+let battle3v3_myTeam = "";
+let battle3v3_mySlotKey = "";
+
 function masukBattle(data, mySlotKey) {
     if (typeof playBgMusic === 'function') playBgMusic('arena');
     if (!currentLobbyId) return; // Langkah keselamatan
@@ -2836,6 +2845,10 @@ function masukBattle(data, mySlotKey) {
     if (battleScreen) battleScreen.classList.remove('hidden');
 
     battle3v3_isActive = true;
+
+// 🔥 TAMBAH 2 BARIS INI: Simpan team apa dan slot apa supaya fungsi booster boleh guna
+    battle3v3_mySlotKey = mySlotKey;
+    battle3v3_myTeam = mySlotKey ? mySlotKey.charAt(0) : ""; // Dapat 'A' atau 'B'
 
 // 🟢 1. Dengar Markah dari RTDB Secara Real-time (GUNA ID DINAMIK)
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
@@ -3713,7 +3726,9 @@ function pantauSeranganMusuh(mySlotKey) {
             if (inputEl && !inputEl.disabled) inputEl.placeholder = "Type your answer here...";
         }
     });
-
+game.js?v=3:3597 Uncaught ReferenceError: battle3v3_myTeam is not defined
+    at gunaBooster (game.js?v=3:3597:26)
+    at HTMLButtonElement.onclick (lexiquest/:1248:259)
     // 2. Pantau Serangan Berpasukan (Black Bat)
     // Serangan ini disasarkan kepada seluruh pasukan
     rtdb.ref("arenas/" + currentLobbyId + "/teamDebuff/" + myTeam).on('value', (snap) => {
