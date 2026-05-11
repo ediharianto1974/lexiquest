@@ -3051,7 +3051,7 @@ async function hantarJawapan3v3(mySlotKey, jawapanSebenar, isTimeout) {
     // POTONG JAWAPAN SEBENAR MENGGUNAKAN "|"
     const senaraiJawapanBetul = jawapanSebenar.trim().toLowerCase().split("|");
 
-let perubahanMarkah = 0;
+    let perubahanMarkah = 0;
     let feedbackText = "";
     let colorClass = "";
 
@@ -3092,39 +3092,6 @@ let perubahanMarkah = 0;
             </div>
         `;
     }
-}
-
-function updateBoosterUI() {
-    // Kemaskini nombor streak di skrin
-    const streakEl = document.getElementById('player-streak-count');
-    if (streakEl) streakEl.innerText = playerStreak;
-
-    // Senarai syarat streak
-    const boosters = [
-        { id: 'btn-boost-x2', streak: 5 },
-        { id: 'btn-boost-freeze', streak: 10 },
-        { id: 'btn-boost-smoke', streak: 10 },
-        { id: 'btn-boost-bat', streak: 30 },
-        { id: 'btn-boost-thief', streak: 40 }
-    ];
-
-    boosters.forEach(b => {
-        const btn = document.getElementById(b.id);
-        if (btn) {
-            if (playerStreak >= b.streak) {
-                // Aktifkan butang (Buang kelabu, tambah warna)
-                btn.classList.remove('grayscale', 'opacity-50', 'cursor-not-allowed');
-                btn.classList.add('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
-                btn.disabled = false;
-            } else {
-                // Matikan butang (Jadikan kelabu semula)
-                btn.classList.add('grayscale', 'opacity-50', 'cursor-not-allowed');
-                btn.classList.remove('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
-                btn.disabled = true;
-            }
-        }
-    });
-}
 
     // ==========================================
     // KEMASKINI TRACKER INDIVIDU (DI DALAM SISTEM)
@@ -3172,6 +3139,43 @@ function updateBoosterUI() {
             paparSoalanSeterusnya3v3(mySlotKey);
         }
     }, 1500); 
+    
+} // <=== INI ADALAH PENUTUP SEBENAR UNTUK hantarJawapan3v3 (Saya dah betulkan)
+
+
+// ==========================================
+// FUNGSI UPDATE BOOSTER (DI LUAR)
+// ==========================================
+function updateBoosterUI() {
+    // Kemaskini nombor streak di skrin
+    const streakEl = document.getElementById('player-streak-count');
+    if (streakEl) streakEl.innerText = playerStreak;
+
+    // Senarai syarat streak
+    const boosters = [
+        { id: 'btn-boost-x2', streak: 5 },
+        { id: 'btn-boost-freeze', streak: 10 },
+        { id: 'btn-boost-smoke', streak: 10 },
+        { id: 'btn-boost-bat', streak: 30 },
+        { id: 'btn-boost-thief', streak: 40 }
+    ];
+
+    boosters.forEach(b => {
+        const btn = document.getElementById(b.id);
+        if (btn) {
+            if (playerStreak >= b.streak) {
+                // Aktifkan butang (Buang kelabu, tambah warna)
+                btn.classList.remove('grayscale', 'opacity-50', 'cursor-not-allowed');
+                btn.classList.add('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
+                btn.disabled = false;
+            } else {
+                // Matikan butang (Jadikan kelabu semula)
+                btn.classList.add('grayscale', 'opacity-50', 'cursor-not-allowed');
+                btn.classList.remove('cursor-pointer', 'border-yellow-400', 'shadow-[0_0_15px_rgba(234,179,8,0.4)]');
+                btn.disabled = true;
+            }
+        }
+    });
 }
 
 // ==========================================
