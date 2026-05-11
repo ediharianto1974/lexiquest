@@ -3182,9 +3182,13 @@ function updateBoosterUI() {
 // FUNGSI GUNA BOOSTER (DENGAN HAD MASA 10 SAAT)
 // ==========================================
 async function gunaBooster(jenisBooster) {
-    if (!currentLobbyId || !my3v3SlotKey) return;
+    // 1. Guna variable global cikgu yang betul: battle3v3_mySlotKey
+    if (!currentLobbyId || !battle3v3_mySlotKey) {
+        console.warn("Booster gagal: Slot Key tidak dijumpai!");
+        return;
+    }
 
-    const teamSaya = my3v3SlotKey.charAt(0); // 'A' atau 'B'
+    const teamSaya = battle3v3_mySlotKey.charAt(0); // 'A' atau 'B'
     const teamLawan = teamSaya === 'A' ? 'B' : 'A';
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
 
@@ -3209,20 +3213,13 @@ async function gunaBooster(jenisBooster) {
 
     try {
         if (jenisBooster === 'x2') {
-            // AKTIFKAN X2 UNTUK 10 SAAT
             pointMultiplier = 2;
             Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🧪 Markah x2 Aktif (10s)!', showConfirmButton: false, timer: 3000 });
-
-            // Timer untuk reset multiplier balik ke 1 selepas 10 saat
-            setTimeout(() => {
-                pointMultiplier = 1;
-                console.log("Multiplier kembali ke 1");
-            }, 10000); 
+            setTimeout(() => { pointMultiplier = 1; }, 10000); 
         } 
         else if (jenisBooster === 'thief') {
             const fieldMarkahSaya = teamSaya === 'A' ? "scoreA" : "scoreB";
             const fieldMarkahLawan = teamLawan === 'A' ? "scoreA" : "scoreB";
-            
             await lobbyRef.update({
                 [fieldMarkahSaya]: firebase.database.ServerValue.increment(2),
                 [fieldMarkahLawan]: firebase.database.ServerValue.increment(-2)
@@ -3231,13 +3228,13 @@ async function gunaBooster(jenisBooster) {
         } 
         else if (jenisBooster === 'freeze' || jenisBooster === 'smoke') {
             const updates = {};
+            // Kita 'tembak' terus ke slot 1, 2, dan 3 pihak lawan
             ['1', '2', '3'].forEach(num => {
                 updates[`players/${teamLawan}${num}/debuff`] = jenisBooster;
             });
             await lobbyRef.update(updates);
             Swal.fire({ toast: true, position: 'top', icon: 'success', title: `Peluru ${namaBooster} Aktif (10s)!`, showConfirmButton: false, timer: 3000 });
 
-            // Timer: Padamkan debuff selepas 10 saat
             setTimeout(() => {
                 const clearUpdates = {};
                 ['1', '2', '3'].forEach(num => {
@@ -3247,22 +3244,15 @@ async function gunaBooster(jenisBooster) {
             }, 10000); 
         } 
         else if (jenisBooster === 'bat') {
-            await lobbyRef.update({
-                [`teamDebuff/${teamLawan}`]: true
-            });
+            await lobbyRef.update({ [`teamDebuff/${teamLawan}`]: true });
             Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat Aktif (10s)!', showConfirmButton: false, timer: 3000 });
-
-            // Timer: Padamkan Black Bat selepas 10 saat
-            setTimeout(() => {
-                lobbyRef.update({
-                    [`teamDebuff/${teamLawan}`]: null
-                });
-            }, 10000); 
+            setTimeout(() => { lobbyRef.update({ [`teamDebuff/${teamLawan}`]: null }); }, 10000); 
         }
     } catch (err) {
         console.error("Gagal melancarkan booster:", err);
     }
 }
+
 // ==========================================
 // LANGKAH 5A: KIRA KEPUTUSAN, GANJARAN & HAD HARIAN 3V3 (GABUNGAN)
 // ==========================================
@@ -3775,33 +3765,31 @@ function gunaBooster(jenis) {
 }
 
 // ==========================================
-// 🛡️ FUNGSI PANTAU SERANGAN MUSUH (LISTENER)
+// RADAR PANTAU SERANGAN (VERSI UPDATE 10 SAAT)
 // ==========================================
-function pantauSeranganMusuh(mySlotKey) {
-    if (!currentLobbyId || !mySlotKey) return;
+function pantauSeranganMusuh() {
+    // 1. Guna variable global cikgu yang betul
+    if (!currentLobbyId || !battle3v3_mySlotKey) return;
     
-    const myTeam = mySlotKey.charAt(0); // Kenal pasti 'A' atau 'B'
+    const myTeam = battle3v3_mySlotKey.charAt(0); 
     
-    // 1. Pantau Serangan Individu (Freeze & Smoke)
-    // Berdasarkan fungsi gunaBooster, ia dihantar ke path "players/A1/debuff"
-    rtdb.ref("arenas/" + currentLobbyId + "/players/" + mySlotKey + "/debuff").on('value', (snap) => {
+    // 2. Pantau Serangan Individu (Freeze & Smoke)
+    rtdb.ref("arenas/" + currentLobbyId + "/players/" + battle3v3_mySlotKey + "/debuff").on('value', (snap) => {
         const debuff = snap.val();
-        
         const inputEl = document.getElementById('jawapan-input');
         const qBox = document.getElementById('battle-question-box');
         
-        // Reset kesan visual (padamkan semua efek dulu)
+        // Reset kesan visual setiap kali data berubah
         if (inputEl) {
             inputEl.classList.remove('frozen-input-effect');
-            inputEl.disabled = false; // Buka balik input
+            inputEl.disabled = false;
         }
         if (qBox) qBox.classList.remove('smoke-blind-effect');
         
-        // Kenakan kesan visual mengikut jenis serangan
         if (debuff === 'freeze') {
             if (inputEl) {
                 inputEl.classList.add('frozen-input-effect');
-                inputEl.disabled = true; // Halang murid menaip
+                inputEl.disabled = true;
                 inputEl.placeholder = "🥶 DIBEKUKAN!";
             }
             Swal.fire({ toast: true, position: 'top', icon: 'info', title: '🥶 Anda dibekukan oleh musuh!', showConfirmButton: false, timer: 3000 });
@@ -3812,22 +3800,21 @@ function pantauSeranganMusuh(mySlotKey) {
             Swal.fire({ toast: true, position: 'top', icon: 'info', title: '💨 Asap tebal mengaburkan soalan!', showConfirmButton: false, timer: 3000 });
         }
         else {
-            // Jika tiada debuff (masa serangan dah tamat), kembalikan placeholder asal
-            if (inputEl && !inputEl.disabled) inputEl.placeholder = "Type your answer here...";
+            // Kembalikan keadaan asal jika debuff dipadam (null)
+            if (inputEl && !inputEl.disabled) {
+                inputEl.placeholder = "Type your answer here...";
+            }
         }
     });
 
-    // 2. Pantau Serangan Berpasukan (Black Bat)
-    // Serangan ini disasarkan kepada seluruh pasukan
+    // 3. Pantau Serangan Berpasukan (Black Bat)
     rtdb.ref("arenas/" + currentLobbyId + "/teamDebuff/" + myTeam).on('value', (snap) => {
         const batData = snap.val();
         const batOverlay = document.getElementById('black-bat-overlay');
         
         if (batData && batOverlay) {
-            // Munculkan overlay kelawar hitam
             batOverlay.classList.remove('hidden');
         } else if (batOverlay) {
-            // Sembunyikan semula apabila masa tamat
             batOverlay.classList.add('hidden');
         }
     });
