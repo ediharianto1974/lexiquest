@@ -3726,9 +3726,7 @@ function pantauSeranganMusuh(mySlotKey) {
             if (inputEl && !inputEl.disabled) inputEl.placeholder = "Type your answer here...";
         }
     });
-game.js?v=3:3597 Uncaught ReferenceError: battle3v3_myTeam is not defined
-    at gunaBooster (game.js?v=3:3597:26)
-    at HTMLButtonElement.onclick (lexiquest/:1248:259)
+
     // 2. Pantau Serangan Berpasukan (Black Bat)
     // Serangan ini disasarkan kepada seluruh pasukan
     rtdb.ref("arenas/" + currentLobbyId + "/teamDebuff/" + myTeam).on('value', (snap) => {
