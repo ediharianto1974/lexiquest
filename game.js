@@ -3092,6 +3092,7 @@ let perubahanMarkah = 0;
             </div>
         `;
     }
+}
 
 function updateBoosterUI() {
     // Kemaskini nombor streak di skrin
