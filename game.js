@@ -3179,7 +3179,7 @@ function updateBoosterUI() {
 }
 
 // ==========================================
-// FUNGSI GUNA BOOSTER (HANTAR ISYARAT KE KOD ASAL CIKGU)
+// FUNGSI GUNA BOOSTER (DENGAN HAD MASA 10 SAAT)
 // ==========================================
 async function gunaBooster(jenisBooster) {
     if (!currentLobbyId || !my3v3SlotKey) return;
@@ -3188,7 +3188,6 @@ async function gunaBooster(jenisBooster) {
     const teamLawan = teamSaya === 'A' ? 'B' : 'A';
     const lobbyRef = rtdb.ref("arenas/" + currentLobbyId);
 
-    // 1. Kenal pasti kos streak dan nama booster
     let kosStreak = 0;
     let namaBooster = "";
 
@@ -3200,25 +3199,27 @@ async function gunaBooster(jenisBooster) {
         case 'thief': kosStreak = 40; namaBooster = "Point Thief"; break;
     }
 
-    // 2. Semak jika streak mencukupi (Elak kes ralat UI)
     if (playerStreak < kosStreak) {
         Swal.fire({ toast: true, position: 'top', icon: 'error', title: 'Streak tidak mencukupi!', showConfirmButton: false, timer: 2000 });
         return;
     }
 
-    // 3. Tolak streak dan kemaskini butang di skrin (UI)
     playerStreak -= kosStreak;
     updateBoosterUI(); 
 
-    // 4. Laksanakan Kesan Serangan ke Database
     try {
         if (jenisBooster === 'x2') {
-            // x2 Point: Efek pada DIRI SENDIRI
-            pointMultiplier = 2; // (Nota: Pastikan pointMultiplier ditukar balik ke 1 dalam hantarJawapan3v3 selepas cikgu jawab)
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🧪 Markah x2 diaktifkan!', showConfirmButton: false, timer: 3000 });
+            // AKTIFKAN X2 UNTUK 10 SAAT
+            pointMultiplier = 2;
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🧪 Markah x2 Aktif (10s)!', showConfirmButton: false, timer: 3000 });
+
+            // Timer untuk reset multiplier balik ke 1 selepas 10 saat
+            setTimeout(() => {
+                pointMultiplier = 1;
+                console.log("Multiplier kembali ke 1");
+            }, 10000); 
         } 
         else if (jenisBooster === 'thief') {
-            // Point Thief: Curi markah di RTDB
             const fieldMarkahSaya = teamSaya === 'A' ? "scoreA" : "scoreB";
             const fieldMarkahLawan = teamLawan === 'A' ? "scoreA" : "scoreB";
             
@@ -3226,39 +3227,37 @@ async function gunaBooster(jenisBooster) {
                 [fieldMarkahSaya]: firebase.database.ServerValue.increment(2),
                 [fieldMarkahLawan]: firebase.database.ServerValue.increment(-2)
             });
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '👺 2 markah musuh berjaya dicuri!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '👺 2 markah dicuri!', showConfirmButton: false, timer: 3000 });
         } 
         else if (jenisBooster === 'freeze' || jenisBooster === 'smoke') {
-            // Serangan Individu: Hantar ke ketiga-tiga pemain pasukan musuh serentak!
             const updates = {};
             ['1', '2', '3'].forEach(num => {
                 updates[`players/${teamLawan}${num}/debuff`] = jenisBooster;
             });
             await lobbyRef.update(updates);
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `Peluru ${namaBooster} dilancarkan!`, showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: `Peluru ${namaBooster} Aktif (10s)!`, showConfirmButton: false, timer: 3000 });
 
-            // Padamkan data dari Firebase selepas 5 saat supaya skrin musuh 'clear' semula
+            // Timer: Padamkan debuff selepas 10 saat
             setTimeout(() => {
                 const clearUpdates = {};
                 ['1', '2', '3'].forEach(num => {
                     clearUpdates[`players/${teamLawan}${num}/debuff`] = null;
                 });
                 lobbyRef.update(clearUpdates);
-            }, 5000);
+            }, 10000); 
         } 
         else if (jenisBooster === 'bat') {
-            // Serangan Berpasukan: Hantar ke TeamDebuff musuh
             await lobbyRef.update({
                 [`teamDebuff/${teamLawan}`]: true
             });
-            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat dilepaskan ke kem musuh!', showConfirmButton: false, timer: 3000 });
+            Swal.fire({ toast: true, position: 'top', icon: 'success', title: '🦇 Black Bat Aktif (10s)!', showConfirmButton: false, timer: 3000 });
 
-            // Padamkan overlay kelawar selepas 7 saat
+            // Timer: Padamkan Black Bat selepas 10 saat
             setTimeout(() => {
                 lobbyRef.update({
                     [`teamDebuff/${teamLawan}`]: null
                 });
-            }, 7000);
+            }, 10000); 
         }
     } catch (err) {
         console.error("Gagal melancarkan booster:", err);
